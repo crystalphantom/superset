@@ -8,6 +8,7 @@ import { FaGithub, FaSlack } from "react-icons/fa";
 import { HiOutlineArrowTopRightOnSquare } from "react-icons/hi2";
 import { SiLinear } from "react-icons/si";
 import { env } from "renderer/env.renderer";
+import { useLinearConnection } from "renderer/hooks/useLinearConnection";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
@@ -36,6 +37,8 @@ export function IntegrationsSettings({
 	const { data: session } = authClient.useSession();
 	const activeOrganizationId = session?.session?.activeOrganizationId;
 	const collections = useCollections();
+	const { connection: linearConnection, isConnected: isLinearConnected } =
+		useLinearConnection();
 
 	const { data: integrations } = useLiveQuery(
 		(q) =>
@@ -87,9 +90,7 @@ export function IntegrationsSettings({
 		fetchGithubInstallation();
 	}, [fetchGithubInstallation]);
 
-	const linearConnection = integrations?.find((i) => i.provider === "linear");
 	const slackConnection = integrations?.find((i) => i.provider === "slack");
-	const isLinearConnected = !!linearConnection;
 	const isSlackConnected = !!slackConnection;
 	const isGithubConnected =
 		!!githubInstallation && !githubInstallation.suspended;

@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { TabValue } from "../../components/TasksTopBar";
 import { compareTasks } from "../../utils/sorting";
+import { useCloudTasksFallback } from "../useCloudTasksFallback";
 import { useHybridSearch } from "../useHybridSearch";
 
 export type TaskWithStatus = SelectTask & {
@@ -60,10 +61,20 @@ export function useTasksData({
 	);
 
 	const allStatuses = useMemo(() => statusData ?? [], [statusData]);
+	const shouldUseCloudFallback = (allData?.length ?? 0) === 0;
+	const cloudFallback = useCloudTasksFallback(shouldUseCloudFallback);
+	const sourceData =
+		shouldUseCloudFallback && cloudFallback.data?.tasks.length
+			? cloudFallback.data.tasks
+			: allData;
+	const sourceStatuses =
+		shouldUseCloudFallback && cloudFallback.data?.statuses.length
+			? cloudFallback.data.statuses
+			: allStatuses;
 
 	const sortedData = useMemo(() => {
-		if (!allData) return [];
-		return allData
+		if (!sourceData) return [];
+		return sourceData
 			.map((task) => ({
 				...task,
 				assignee:
@@ -72,7 +83,7 @@ export function useTasksData({
 						: null,
 			}))
 			.sort(compareTasks);
-	}, [allData]);
+	}, [sourceData]);
 
 	const { search } = useHybridSearch(sortedData);
 
@@ -117,6 +128,6 @@ export function useTasksData({
 
 	return {
 		data: filteredData,
-		allStatuses,
+		allStatuses: sourceStatuses,
 	};
 }

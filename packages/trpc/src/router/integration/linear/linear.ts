@@ -7,11 +7,16 @@ import {
 } from "@superset/db/schema";
 import { seedDefaultStatuses } from "@superset/db/seed-default-statuses";
 import type { TRPCRouterRecord } from "@trpc/server";
+import { TRPCError } from "@trpc/server";
+import { Client } from "@upstash/qstash";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { env } from "../../../env";
 import { protectedProcedure } from "../../../trpc";
 import { verifyOrgAdmin, verifyOrgMembership } from "../utils";
 import { callLinear } from "./refresh";
+
+const qstash = new Client({ token: env.QSTASH_TOKEN });
 
 export const linearRouter = {
 	getConnection: protectedProcedure
@@ -25,16 +30,27 @@ export const linearRouter = {
 				),
 				columns: {
 					id: true,
+					provider: true,
+					externalOrgId: true,
+					externalOrgName: true,
 					config: true,
 					disconnectedAt: true,
 					disconnectReason: true,
+					createdAt: true,
+					updatedAt: true,
 				},
 			});
 			if (!connection) return null;
 			return {
+				id: connection.id,
+				provider: connection.provider,
+				externalOrgId: connection.externalOrgId,
+				externalOrgName: connection.externalOrgName,
 				config: connection.config as LinearConfig | null,
 				needsReconnect: !!connection.disconnectedAt,
 				disconnectReason: connection.disconnectReason,
+				createdAt: connection.createdAt,
+				updatedAt: connection.updatedAt,
 			};
 		}),
 
@@ -119,6 +135,72 @@ export const linearRouter = {
 
 			if (result.length === 0) {
 				return { success: false, error: "No connection found" };
+			}
+
+			return { success: true };
+		}),
+
+	triggerSync: protectedProcedure
+		.input(z.object({ organizationId: z.uuid() }))
+		.mutation(async ({ ctx, input }) => {
+			await verifyOrgMembership(ctx.session.user.id, input.organizationId);
+
+			const connection = await db.query.integrationConnections.findFirst({
+				where: and(
+					eq(integrationConnections.organizationId, input.organizationId),
+					eq(integrationConnections.provider, "linear"),
+				),
+				columns: {
+					id: true,
+					disconnectedAt: true,
+				},
+			});
+
+			if (!connection) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Linear connection not found",
+				});
+			}
+
+			if (connection.disconnectedAt) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Linear connection needs to be reconnected before syncing",
+				});
+			}
+
+			const syncUrl = `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/initial-sync`;
+			const syncBody = {
+				organizationId: input.organizationId,
+				creatorUserId: ctx.session.user.id,
+			};
+
+			// In development, call the sync endpoint directly (QStash can't reach localhost)
+			if (env.NODE_ENV === "development") {
+				const response = await fetch(syncUrl, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(syncBody),
+				});
+
+				if (!response.ok) {
+					const body = await response.text();
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Linear sync failed: ${body}`,
+					});
+				}
+				const result = (await response.json()) as {
+					tasksUpserted?: number;
+				};
+				return { success: true, imported: result.tasksUpserted ?? 0 };
+			} else {
+				await qstash.publishJSON({
+					url: syncUrl,
+					body: syncBody,
+					retries: 3,
+				});
 			}
 
 			return { success: true };

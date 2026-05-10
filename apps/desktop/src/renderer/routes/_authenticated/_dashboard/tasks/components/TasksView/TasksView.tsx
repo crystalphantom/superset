@@ -1,7 +1,6 @@
-import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useLinearConnection } from "renderer/hooks/useLinearConnection";
 import { useTasksFilterStore } from "../../stores/tasks-filter-state";
 import { BoardContent } from "./components/BoardContent";
 import { LinearCTA } from "./components/LinearCTA";
@@ -21,7 +20,6 @@ export function TasksView({
 	initialSearch,
 }: TasksViewProps) {
 	const navigate = useNavigate();
-	const collections = useCollections();
 	const currentTab: TabValue = initialTab ?? "all";
 	const [searchQuery, setSearchQuery] = useState(initialSearch ?? "");
 	const assigneeFilter = initialAssignee ?? null;
@@ -77,18 +75,10 @@ export function TasksView({
 		storeSetSearch(searchQuery);
 	}, [searchQuery, storeSetSearch]);
 
-	const { data: integrations } = useLiveQuery(
-		(q) =>
-			q
-				.from({ integrationConnections: collections.integrationConnections })
-				.select(({ integrationConnections }) => ({
-					...integrationConnections,
-				})),
-		[collections],
-	);
-
-	const isLinearConnected =
-		integrations?.some((i) => i.provider === "linear") ?? false;
+	const {
+		isConnected: isLinearConnected,
+		isLoading: isLinearConnectionLoading,
+	} = useLinearConnection();
 
 	const handleTabChange = (tab: TabValue) => {
 		const search: Record<string, string> = {};
@@ -133,7 +123,7 @@ export function TasksView({
 		});
 	};
 
-	const showLinearCTA = integrations !== undefined && !isLinearConnected;
+	const showLinearCTA = !isLinearConnectionLoading && !isLinearConnected;
 
 	return (
 		<div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">

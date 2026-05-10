@@ -339,6 +339,7 @@ export const taskRouter = {
 						name: creator.name,
 						image: creator.image,
 					},
+					status,
 					statusName: status.name,
 				})
 				.from(tasks)

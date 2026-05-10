@@ -1,6 +1,5 @@
 import type { LinearClient } from "@linear/sdk";
 import { mapPriorityFromLinear } from "@superset/trpc/integrations/linear";
-import { subMonths } from "date-fns";
 
 export interface LinearIssue {
 	id: string;
@@ -83,8 +82,8 @@ export function calculateProgressForStates(
 }
 
 const ISSUES_QUERY = `
-  query Issues($first: Int!, $after: String, $filter: IssueFilter) {
-    issues(first: $first, after: $after, filter: $filter) {
+  query Issues($first: Int!, $after: String) {
+    issues(first: $first, after: $after) {
       pageInfo {
         hasNextPage
         endCursor
@@ -130,16 +129,14 @@ export async function fetchAllIssues(
 ): Promise<LinearIssue[]> {
 	const allIssues: LinearIssue[] = [];
 	let cursor: string | undefined;
-	const threeMonthsAgo = subMonths(new Date(), 3);
 
 	do {
 		const response = await client.client.request<
 			IssuesQueryResponse,
-			{ first: number; after?: string; filter: object }
+			{ first: number; after?: string }
 		>(ISSUES_QUERY, {
 			first: 100,
 			after: cursor,
-			filter: { updatedAt: { gte: threeMonthsAgo.toISOString() } },
 		});
 		allIssues.push(...response.issues.nodes);
 		cursor =

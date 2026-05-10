@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 
 import { env } from "@/env";
 import { verifySignedState } from "@/lib/oauth-state";
+import { performInitialSync } from "../jobs/initial-sync/sync";
 
 const qstash = new Client({ token: env.QSTASH_TOKEN });
 
@@ -114,17 +115,28 @@ export async function GET(request: Request) {
 			},
 		});
 
-	try {
-		await qstash.publishJSON({
-			url: `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/initial-sync`,
-			body: { organizationId, creatorUserId: userId },
-			retries: 3,
-		});
-	} catch (error) {
-		console.error("Failed to queue initial sync job:", error);
-		return Response.redirect(
-			`${env.NEXT_PUBLIC_WEB_URL}/integrations/linear?warning=sync_queued_failed`,
-		);
+	if (env.NODE_ENV === "development") {
+		try {
+			await performInitialSync(linearClient, organizationId, userId);
+		} catch (error) {
+			console.error("Failed to run Linear initial sync:", error);
+			return Response.redirect(
+				`${env.NEXT_PUBLIC_WEB_URL}/integrations/linear?warning=sync_queued_failed`,
+			);
+		}
+	} else {
+		try {
+			await qstash.publishJSON({
+				url: `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/initial-sync`,
+				body: { organizationId, creatorUserId: userId },
+				retries: 3,
+			});
+		} catch (error) {
+			console.error("Failed to queue initial sync job:", error);
+			return Response.redirect(
+				`${env.NEXT_PUBLIC_WEB_URL}/integrations/linear?warning=sync_queued_failed`,
+			);
+		}
 	}
 
 	return Response.redirect(`${env.NEXT_PUBLIC_WEB_URL}/integrations/linear`);

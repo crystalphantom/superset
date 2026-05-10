@@ -31,6 +31,7 @@ import {
 } from "../../components/shared/StatusIcon";
 import type { TabValue } from "../../components/TasksTopBar";
 import { compareTasks } from "../../utils/sorting";
+import { useCloudTasksFallback } from "../useCloudTasksFallback";
 import { useHybridSearch } from "../useHybridSearch";
 import { AssigneeCell } from "./components/AssigneeCell";
 import { PriorityCell } from "./components/PriorityCell";
@@ -104,10 +105,16 @@ export function useTasksTable({
 				.where(({ tasks }) => isNull(tasks.deletedAt)),
 		[collections],
 	);
+	const shouldUseCloudFallback = (allData?.length ?? 0) === 0;
+	const cloudFallback = useCloudTasksFallback(shouldUseCloudFallback);
+	const sourceData =
+		shouldUseCloudFallback && cloudFallback.data?.tasks.length
+			? cloudFallback.data.tasks
+			: allData;
 
 	const sortedData = useMemo(() => {
-		if (!allData) return [];
-		return allData
+		if (!sourceData) return [];
+		return sourceData
 			.map((task) => ({
 				...task,
 				assignee:
@@ -116,7 +123,7 @@ export function useTasksTable({
 						: null,
 			}))
 			.sort(compareTasks);
-	}, [allData]);
+	}, [sourceData]);
 
 	const { search } = useHybridSearch(sortedData);
 

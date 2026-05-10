@@ -12,8 +12,9 @@ import {
 	AlertDialogTrigger,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
+import { toast } from "@superset/ui/sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Unplug } from "lucide-react";
+import { AlertTriangle, RefreshCw, Unplug } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { env } from "@/env";
 import { useTRPC } from "@/trpc/react";
@@ -46,12 +47,36 @@ export function ConnectionControls({
 		}),
 	);
 
+	const syncMutation = useMutation(
+		trpc.integration.linear.triggerSync.mutationOptions({
+			onSuccess: (result) => {
+				toast.success(
+					result.imported !== undefined
+						? `Linear sync finished. Imported ${result.imported} issues.`
+						: "Linear sync started. Issues will appear shortly.",
+				);
+				queryClient.invalidateQueries({
+					queryKey: trpc.integration.linear.getConnection.queryKey({
+						organizationId,
+					}),
+				});
+			},
+			onError: (error) => {
+				toast.error(error.message || "Failed to start Linear sync.");
+			},
+		}),
+	);
+
 	const handleConnect = () => {
 		window.location.href = `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/connect?organizationId=${organizationId}`;
 	};
 
 	const handleDisconnect = () => {
 		disconnectMutation.mutate({ organizationId });
+	};
+
+	const handleSync = () => {
+		syncMutation.mutate({ organizationId });
 	};
 
 	if (isConnected && needsReconnect) {
@@ -97,29 +122,39 @@ export function ConnectionControls({
 
 	if (isConnected) {
 		return (
-			<AlertDialog>
-				<AlertDialogTrigger asChild>
-					<Button variant="outline" disabled={disconnectMutation.isPending}>
-						<Unplug className="mr-2 size-4" />
-						{disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
-					</Button>
-				</AlertDialogTrigger>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Disconnect Linear?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This will remove the connection between your organization and
-							Linear. You can reconnect at any time.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={handleDisconnect}>
-							Disconnect
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<div className="flex gap-2">
+				<Button
+					variant="outline"
+					onClick={handleSync}
+					disabled={syncMutation.isPending}
+				>
+					<RefreshCw className="mr-2 size-4" />
+					{syncMutation.isPending ? "Syncing..." : "Sync issues"}
+				</Button>
+				<AlertDialog>
+					<AlertDialogTrigger asChild>
+						<Button variant="outline" disabled={disconnectMutation.isPending}>
+							<Unplug className="mr-2 size-4" />
+							{disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
+						</Button>
+					</AlertDialogTrigger>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Disconnect Linear?</AlertDialogTitle>
+							<AlertDialogDescription>
+								This will remove the connection between your organization and
+								Linear. You can reconnect at any time.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogAction onClick={handleDisconnect}>
+								Disconnect
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			</div>
 		);
 	}
 
