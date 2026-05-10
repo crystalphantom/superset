@@ -1115,6 +1115,8 @@
     "workerd",
   ],
   "overrides": {
+    "@tanstack/query-core": "5.100.9",
+    "@tanstack/react-query": "5.100.9",
     "axios": "1.14.0",
   },
   "packages": {

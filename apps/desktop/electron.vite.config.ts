@@ -21,6 +21,7 @@ import {
 config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
 
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
+const rootNodeModules = resolve(__dirname, "../../node_modules");
 
 // Validate required env vars at build time using the Zod schema (single source of truth)
 await import("./src/main/env.main");
@@ -32,6 +33,22 @@ const tsconfigPaths = tsconfigPathsPlugin({
 const workspaceDependencies = Object.keys(dependencies).filter((dependency) =>
 	dependency.startsWith("@superset/"),
 );
+
+const rendererSingletonAliases = {
+	react: resolve(rootNodeModules, "react"),
+	"react-dom": resolve(rootNodeModules, "react-dom"),
+	"@tanstack/react-query": resolve(rootNodeModules, "@tanstack/react-query"),
+	"@tanstack/react-query-persist-client": resolve(
+		rootNodeModules,
+		"@tanstack/react-query-persist-client",
+	),
+	"@tanstack/query-async-storage-persister": resolve(
+		rootNodeModules,
+		"@tanstack/query-async-storage-persister",
+	),
+};
+
+const rendererSingletonDedupe = ["react", "react-dom", "@tanstack/react-query"];
 
 // Sentry plugin for uploading sourcemaps (only in CI with auth token)
 const sentryPlugin = process.env.SENTRY_AUTH_TOKEN
@@ -218,6 +235,11 @@ export default defineConfig({
 		server: {
 			port: DEV_SERVER_PORT,
 			strictPort: false,
+		},
+
+		resolve: {
+			alias: rendererSingletonAliases,
+			dedupe: rendererSingletonDedupe,
 		},
 
 		plugins: [

@@ -18,7 +18,7 @@
 	"scripts": {
 		"dev": "turbo run dev dev:caddy --filter=@superset/api --filter=@superset/web --filter=@superset/desktop --filter=electric-proxy --filter=//",
 		"dev:all": "turbo dev",
-		"dev:desktop": "turbo run dev dev:caddy --filter=@superset/api --filter=@superset/web --filter=@superset/desktop --filter=electric-proxy --filter=//",
+		"dev:desktop": "turbo run dev --filter=@superset/api --filter=@superset/web --filter=@superset/desktop --filter=electric-proxy",
 		"dev:caddy": "dotenv -- caddy run --config Caddyfile",
 		"dev:docs": "turbo dev --filter=@superset/docs",
 		"dev:marketing": "turbo dev --filter=@superset/marketing --filter=@superset/docs",
@@ -47,6 +47,8 @@
 		"tooling/*"
 	],
 	"overrides": {
+		"@tanstack/query-core": "5.100.9",
+		"@tanstack/react-query": "5.100.9",
 		"axios": "1.14.0"
 	},
 	"trustedDependencies": [

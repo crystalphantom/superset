@@ -45,11 +45,19 @@ export function LocalHostServiceProvider({
 		[organizations],
 	);
 
+	const hostServiceOrganizationIds = useMemo(() => {
+		const ids = new Set(organizationIds);
+		if (activeOrganizationId) {
+			ids.add(activeOrganizationId);
+		}
+		return [...ids];
+	}, [activeOrganizationId, organizationIds]);
+
 	useEffect(() => {
-		for (const organizationId of organizationIds) {
+		for (const organizationId of hostServiceOrganizationIds) {
 			startHostService({ organizationId });
 		}
-	}, [organizationIds, startHostService]);
+	}, [hostServiceOrganizationIds, startHostService]);
 
 	const { data: machineIdData } = electronTrpc.device.getMachineId.useQuery(
 		undefined,
