@@ -16,6 +16,10 @@ COPY --from=prune /app/out/full/ ./
 FROM base AS runner
 ENV NODE_ENV=production
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 1001 relay && \
     useradd --system --uid 1001 --gid relay relay
 
