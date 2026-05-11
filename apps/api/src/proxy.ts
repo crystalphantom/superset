@@ -1,35 +1,14 @@
-import { getTrustedVercelPreviewOrigins } from "@superset/shared/vercel-preview-origins";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { env } from "./env";
-
-const desktopDevPort = process.env.DESKTOP_VITE_PORT || "5173";
-const desktopDevOrigins =
-	process.env.NODE_ENV === "development"
-		? [
-				`http://localhost:${desktopDevPort}`,
-				`http://127.0.0.1:${desktopDevPort}`,
-			]
-		: [];
-
-function getAllowedOrigins(deploymentOrigin: string) {
-	return [
-		env.NEXT_PUBLIC_WEB_URL,
-		env.NEXT_PUBLIC_ADMIN_URL,
-		env.NEXT_PUBLIC_DESKTOP_URL,
-		...getTrustedVercelPreviewOrigins(deploymentOrigin),
-		...desktopDevOrigins,
-	].filter(Boolean);
-}
-
-function getCorsHeaders(origin: string | null, deploymentOrigin: string) {
-	const allowedOrigins = getAllowedOrigins(deploymentOrigin);
-	const isAllowed = origin && allowedOrigins.includes(origin);
+function getCorsHeaders(origin: string | null) {
 	return {
-		"Access-Control-Allow-Origin": isAllowed ? origin : "",
+		// MVP self-host rollout: reflect any browser/Electron origin while the
+		// API, web app, desktop dev server, and relay are split across domains.
+		// With credentials enabled, "*" is invalid, so reflect the request origin.
+		"Access-Control-Allow-Origin": origin ?? "",
 		"Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers":
-			"Content-Type, Authorization, x-trpc-source, trpc-accept, Producer-Id, Producer-Epoch, Producer-Seq, Stream-Closed",
+			"Content-Type, Authorization, x-trpc-source, trpc-accept, Producer-Id, Producer-Epoch, Producer-Seq, Stream-Closed, X-Requested-With",
 		"Access-Control-Expose-Headers": [
 			// Durable stream headers
 			"Stream-Next-Offset",
@@ -49,7 +28,7 @@ function getCorsHeaders(origin: string | null, deploymentOrigin: string) {
 
 export default function proxy(req: NextRequest) {
 	const origin = req.headers.get("origin");
-	const corsHeaders = getCorsHeaders(origin, req.nextUrl.origin);
+	const corsHeaders = getCorsHeaders(origin);
 
 	// Handle preflight
 	if (req.method === "OPTIONS") {

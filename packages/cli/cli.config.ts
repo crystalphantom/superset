@@ -17,6 +17,9 @@ export default defineConfig({
 		"process.env.SUPERSET_WEB_URL": JSON.stringify(
 			process.env.SUPERSET_WEB_URL ?? "https://app.superset.sh",
 		),
+		"process.env.SUPERSET_OAUTH_CLIENT_ID": JSON.stringify(
+			process.env.SUPERSET_OAUTH_CLIENT_ID ?? "superset-cli",
+		),
 		"process.env.SUPERSET_VERSION": JSON.stringify(VERSION),
 	},
 	globals: {

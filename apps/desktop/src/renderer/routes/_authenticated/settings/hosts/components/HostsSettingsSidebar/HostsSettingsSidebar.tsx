@@ -1,11 +1,9 @@
 import { cn } from "@superset/ui/utils";
-import { eq } from "@tanstack/db";
-import { useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useAccessibleHosts } from "renderer/routes/_authenticated/hooks/useAccessibleHosts";
 import { MOCK_ORG_ID } from "shared/constants";
 import {
 	type SettingsListGroup,
@@ -27,28 +25,13 @@ interface HostsSettingsSidebarProps {
 export function HostsSettingsSidebar({
 	selectedHostId,
 }: HostsSettingsSidebarProps) {
-	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 
 	const activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
 		: (session?.session?.activeOrganizationId ?? null);
 
-	const { data: hosts = [] } = useLiveQuery(
-		(q) =>
-			q
-				.from({ hosts: collections.v2Hosts })
-				.where(({ hosts }) =>
-					eq(hosts.organizationId, activeOrganizationId ?? ""),
-				)
-				.select(({ hosts }) => ({
-					id: hosts.machineId,
-					name: hosts.name,
-					machineId: hosts.machineId,
-					isOnline: hosts.isOnline,
-				})),
-		[collections, activeOrganizationId],
-	);
+	const hosts = useAccessibleHosts(activeOrganizationId);
 
 	const listGroups = useMemo<Array<SettingsListGroup<HostRow>>>(() => {
 		const sorted = [...hosts].sort((a, b) => a.name.localeCompare(b.name));

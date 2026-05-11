@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { CLIError } from "@superset/cli-framework";
 import { env } from "./env";
 
-const CLIENT_ID = "superset-cli";
+const CLIENT_ID = process.env.SUPERSET_OAUTH_CLIENT_ID || "superset-cli";
 const PASTE_REDIRECT_PATH = "/cli/auth/code";
 const SCOPE = "openid profile email offline_access";
 const LOOPBACK_PORTS = [51789, 51790, 51791, 51792, 51793];

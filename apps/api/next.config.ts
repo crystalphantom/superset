@@ -3,6 +3,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { config as dotenvConfig } from "dotenv";
 import type { NextConfig } from "next";
 
+const monorepoRoot = join(process.cwd(), "../..");
+
 if (process.env.NODE_ENV !== "production") {
 	dotenvConfig({
 		path: join(process.cwd(), "../../.env"),
@@ -13,6 +15,10 @@ if (process.env.NODE_ENV !== "production") {
 
 const config: NextConfig = {
 	reactCompiler: true,
+	outputFileTracingRoot: monorepoRoot,
+	turbopack: {
+		root: monorepoRoot,
+	},
 	typescript: { ignoreBuildErrors: true },
 
 	images: {

@@ -7,6 +7,7 @@ const publicRoutes = [
 	"/sign-up",
 	"/auth/desktop",
 	"/api/auth/desktop",
+	"/api/auth/session",
 	"/accept-invitation",
 	"/cli/auth/code",
 ];

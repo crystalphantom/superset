@@ -3,6 +3,7 @@ import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useMemo } from "react";
 import { authClient } from "renderer/lib/auth-client";
+import { useAccessibleHosts } from "renderer/routes/_authenticated/hooks/useAccessibleHosts";
 import {
 	type PersistableTransaction,
 	useOptimisticCollectionActions,
@@ -32,7 +33,9 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const currentUserId = session?.user?.id ?? null;
+	const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
 	const actions = useOptimisticCollectionActions();
+	const accessibleHosts = useAccessibleHosts(activeOrganizationId);
 
 	const { data: hostRows = [] } = useLiveQuery(
 		(q) =>
@@ -42,7 +45,9 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				.select(({ hosts }) => ({ ...hosts })),
 		[collections, hostId],
 	);
-	const host = hostRows[0];
+	const syncedHost = hostRows[0];
+	const fallbackHost = accessibleHosts.find((row) => row.id === hostId);
+	const host = syncedHost ?? fallbackHost;
 
 	const { data: hostUserRows = [] } = useLiveQuery(
 		(q) =>
@@ -67,9 +72,11 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 		(q) =>
 			q
 				.from({ m: collections.members })
-				.where(({ m }) => eq(m.organizationId, host?.organizationId ?? ""))
+				.where(({ m }) =>
+					eq(m.organizationId, syncedHost?.organizationId ?? ""),
+				)
 				.select(({ m }) => ({ userId: m.userId })),
-		[collections, host?.organizationId],
+		[collections, syncedHost?.organizationId],
 	);
 
 	const userMap = useMemo(() => {
@@ -129,11 +136,12 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 	}
 
 	const handleAdd = (candidate: CandidateRow) => {
+		if (!syncedHost) return;
 		notifyOnPersist(
 			actions.v2UsersHosts.addMember({
 				hostId,
 				userId: candidate.userId,
-				organizationId: host.organizationId,
+				organizationId: syncedHost.organizationId,
 			}),
 			"Member added",
 		);

@@ -1,6 +1,5 @@
 "use client";
 
-import { authClient } from "@superset/auth/client";
 import { Button } from "@superset/ui/button";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -25,10 +24,10 @@ export default function SignInPage() {
 		setError(null);
 
 		try {
-			await authClient.signIn.social({
-				provider: "google",
-				callbackURL,
-			});
+			const url = new URL("/api/auth/social/connect", env.NEXT_PUBLIC_API_URL);
+			url.searchParams.set("provider", "google");
+			url.searchParams.set("callbackURL", callbackURL);
+			window.location.href = url.toString();
 		} catch (err) {
 			console.error("Sign in failed:", err);
 			setError("Failed to sign in. Please try again.");
@@ -41,10 +40,10 @@ export default function SignInPage() {
 		setError(null);
 
 		try {
-			await authClient.signIn.social({
-				provider: "github",
-				callbackURL,
-			});
+			const url = new URL("/api/auth/social/connect", env.NEXT_PUBLIC_API_URL);
+			url.searchParams.set("provider", "github");
+			url.searchParams.set("callbackURL", callbackURL);
+			window.location.href = url.toString();
 		} catch (err) {
 			console.error("Sign in failed:", err);
 			setError("Failed to sign in. Please try again.");

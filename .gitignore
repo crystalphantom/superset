@@ -37,6 +37,7 @@ yarn.lock
 .env
 .env.*
 !.bun-version
+.vercel
 
 mise.toml
 

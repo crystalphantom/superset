@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import Image from "next/image";
 
 import { env } from "@/env";
-import { api } from "@/trpc/server";
 import { ConsentForm } from "./components/ConsentForm";
 
 interface ConsentPageProps {
@@ -57,8 +56,15 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
 
 	const scopes = scope?.split(" ").filter(Boolean) ?? ["openid"];
 
-	const trpc = await api();
-	const userOrganizations = await trpc.user.myOrganizations.query();
+	const userOrganizations = (
+		await db.query.members.findMany({
+			where: (table, { eq }) => eq(table.userId, session.user.id),
+			orderBy: (table, { desc }) => desc(table.createdAt),
+			with: {
+				organization: true,
+			},
+		})
+	).map((membership) => membership.organization);
 
 	const oauthApp = await db.query.oauthClients.findFirst({
 		where: (table, { eq }) => eq(table.clientId, client_id),

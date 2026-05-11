@@ -16,6 +16,7 @@ export interface TunnelClientOptions {
 	getAuthToken: () => Promise<string | null>;
 	localPort: number;
 	hostServiceSecret: string;
+	onStatusChange?: (isOnline: boolean) => void | Promise<void>;
 }
 
 export class TunnelClient {
@@ -24,6 +25,7 @@ export class TunnelClient {
 	private readonly getAuthToken: () => Promise<string | null>;
 	private readonly localPort: number;
 	private readonly hostServiceSecret: string;
+	private readonly onStatusChange?: (isOnline: boolean) => void | Promise<void>;
 	private socket: WebSocket | null = null;
 	private localChannels = new Map<string, WebSocket>();
 	private reconnectAttempts = 0;
@@ -36,6 +38,7 @@ export class TunnelClient {
 		this.getAuthToken = options.getAuthToken;
 		this.localPort = options.localPort;
 		this.hostServiceSecret = options.hostServiceSecret;
+		this.onStatusChange = options.onStatusChange;
 	}
 
 	async connect(): Promise<void> {
@@ -64,15 +67,22 @@ export class TunnelClient {
 				console.log(
 					`[host-service:tunnel] connected to relay for host ${this.hostId}`,
 				);
+				void this.setOnline(true);
 			};
 
 			socket.onmessage = (event) => {
 				void this.handleMessage(event.data);
 			};
 
-			socket.onclose = () => {
+			socket.onclose = (event) => {
 				this.socket = null;
 				this.cleanupChannels();
+				if (!this.closed) {
+					console.warn(
+						`[host-service:tunnel] relay socket closed (${event.code}${event.reason ? `: ${event.reason}` : ""})`,
+					);
+				}
+				void this.setOnline(false);
 				if (!this.closed) {
 					this.scheduleReconnect();
 				}
@@ -108,6 +118,18 @@ export class TunnelClient {
 	private send(message: TunnelResponse): void {
 		if (this.socket?.readyState === WebSocket.OPEN) {
 			this.socket.send(JSON.stringify(message));
+		}
+	}
+
+	private async setOnline(isOnline: boolean): Promise<void> {
+		if (!this.onStatusChange) return;
+		try {
+			await this.onStatusChange(isOnline);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.warn(
+				`[host-service:tunnel] failed to mark host ${isOnline ? "online" : "offline"}: ${message}`,
+			);
 		}
 	}
 

@@ -21,7 +21,7 @@ import {
 config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
 
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
-const rootNodeModules = resolve(__dirname, "../../node_modules");
+const desktopNodeModules = resolve(__dirname, "node_modules");
 
 // Validate required env vars at build time using the Zod schema (single source of truth)
 await import("./src/main/env.main");
@@ -35,15 +35,15 @@ const workspaceDependencies = Object.keys(dependencies).filter((dependency) =>
 );
 
 const rendererSingletonAliases = {
-	react: resolve(rootNodeModules, "react"),
-	"react-dom": resolve(rootNodeModules, "react-dom"),
-	"@tanstack/react-query": resolve(rootNodeModules, "@tanstack/react-query"),
+	react: resolve(desktopNodeModules, "react"),
+	"react-dom": resolve(desktopNodeModules, "react-dom"),
+	"@tanstack/react-query": resolve(desktopNodeModules, "@tanstack/react-query"),
 	"@tanstack/react-query-persist-client": resolve(
-		rootNodeModules,
+		desktopNodeModules,
 		"@tanstack/react-query-persist-client",
 	),
 	"@tanstack/query-async-storage-persister": resolve(
-		rootNodeModules,
+		desktopNodeModules,
 		"@tanstack/query-async-storage-persister",
 	),
 };

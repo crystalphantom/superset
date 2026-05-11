@@ -1,0 +1,5 @@
+{
+	"buildCommand": "bun run --env-file=.vercel/.env.production.local build && mkdir -p apps/web && ln -sfn ../../.next apps/web/.next",
+	"installCommand": "bun install --frozen-lockfile --ignore-scripts",
+	"outputDirectory": ".next"
+}

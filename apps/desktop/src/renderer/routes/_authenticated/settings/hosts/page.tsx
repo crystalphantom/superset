@@ -1,10 +1,8 @@
-import { eq } from "@tanstack/db";
-import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useAccessibleHosts } from "renderer/routes/_authenticated/hooks/useAccessibleHosts";
 import { MOCK_ORG_ID } from "shared/constants";
 
 export const Route = createFileRoute("/_authenticated/settings/hosts/")({
@@ -12,7 +10,6 @@ export const Route = createFileRoute("/_authenticated/settings/hosts/")({
 });
 
 function HostsIndexPage() {
-	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
 
@@ -20,20 +17,7 @@ function HostsIndexPage() {
 		? MOCK_ORG_ID
 		: (session?.session?.activeOrganizationId ?? null);
 
-	const { data: hosts = [] } = useLiveQuery(
-		(q) =>
-			q
-				.from({ hosts: collections.v2Hosts })
-				.where(({ hosts }) =>
-					eq(hosts.organizationId, activeOrganizationId ?? ""),
-				)
-				.select(({ hosts }) => ({
-					id: hosts.machineId,
-					name: hosts.name,
-					isOnline: hosts.isOnline,
-				})),
-		[collections, activeOrganizationId],
-	);
+	const hosts = useAccessibleHosts(activeOrganizationId);
 
 	const firstHostId = useMemo(() => {
 		const sorted = [...hosts].sort((a, b) => a.name.localeCompare(b.name));

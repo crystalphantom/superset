@@ -1,6 +1,5 @@
 "use client";
 
-import { authClient } from "@superset/auth/client";
 import { Button } from "@superset/ui/button";
 import {
 	Select,
@@ -55,6 +54,27 @@ const SCOPE_DESCRIPTIONS: Record<
 	},
 };
 
+function parseSignedQuery(search: string) {
+	const params = new URLSearchParams(search);
+	if (!params.has("sig")) return undefined;
+
+	const signedParams = new URLSearchParams();
+	for (const [key, value] of params.entries()) {
+		signedParams.append(key, value);
+		if (key === "sig") break;
+	}
+
+	return signedParams.toString();
+}
+
+function safeParseJson(text: string, fallbackMessage: string) {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return { message: text || fallbackMessage };
+	}
+}
+
 export function ConsentForm({
 	clientId,
 	clientName,
@@ -82,30 +102,44 @@ export function ConsentForm({
 		setError(null);
 
 		try {
-			if (accept) {
-				const { error: setActiveError } =
-					await authClient.organization.setActive({
-						organizationId: selectedOrgId,
-					});
-				if (setActiveError) {
-					throw new Error(
-						setActiveError.message ?? "Failed to set organization",
-					);
-				}
-			}
-
-			const { data, error: consentError } = await authClient.oauth2.consent({
-				accept,
-				scope: accept ? scopes.join(" ") : undefined,
+			const response = await fetch("/api/oauth/consent", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					accept,
+					organizationId: accept ? selectedOrgId : undefined,
+					scope: accept ? scopes.join(" ") : undefined,
+					oauth_query: parseSignedQuery(window.location.search),
+				}),
 			});
 
-			if (consentError) {
-				throw new Error(consentError.message ?? "Failed to process consent");
+			if (response.redirected && response.url.includes("/sign-in")) {
+				window.location.href = response.url;
+				return;
+			}
+
+			const responseText = await response.text();
+			const data = (
+				responseText
+					? safeParseJson(responseText, response.statusText)
+					: { message: response.statusText }
+			) as {
+				url?: string;
+				message?: string;
+			};
+
+			if (!response.ok) {
+				throw new Error(data.message ?? "Failed to process consent");
 			}
 
 			if (data?.url) {
 				window.location.href = data.url;
+				return;
 			}
+
+			throw new Error("Missing OAuth redirect URL");
 		} catch (err) {
 			console.error("[oauth/consent] Error:", err);
 			setError(err instanceof Error ? err.message : "An error occurred");

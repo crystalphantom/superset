@@ -82,6 +82,10 @@ export const auth = betterAuth({
 		},
 	},
 	advanced: {
+		// MVP self-host rollout: keep auth flows permissive while API and web live
+		// on separate vercel.app hostnames. Tighten this once domains are consolidated.
+		disableOriginCheck: true,
+		disableCSRFCheck: true,
 		crossSubDomainCookies: {
 			enabled: true,
 			domain: env.NEXT_PUBLIC_COOKIE_DOMAIN,

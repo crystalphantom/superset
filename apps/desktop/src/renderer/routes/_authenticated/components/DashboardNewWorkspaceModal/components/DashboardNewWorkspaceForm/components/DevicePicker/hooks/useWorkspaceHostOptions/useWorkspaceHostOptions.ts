@@ -1,9 +1,7 @@
-import { and, eq } from "@tanstack/db";
-import { useLiveQuery } from "@tanstack/react-db";
 import { useMemo } from "react";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useAccessibleHosts } from "renderer/routes/_authenticated/hooks/useAccessibleHosts";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { MOCK_ORG_ID } from "shared/constants";
 
@@ -23,34 +21,12 @@ interface UseWorkspaceHostOptionsResult {
 
 export function useWorkspaceHostOptions(): UseWorkspaceHostOptionsResult {
 	const { data: session } = authClient.useSession();
-	const collections = useCollections();
 	const { machineId, activeHostUrl } = useLocalHostService();
 
 	const activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
 		: (session?.session?.activeOrganizationId ?? null);
-	const currentUserId = session?.user?.id ?? null;
-
-	const { data: accessibleHosts = [] } = useLiveQuery(
-		(q) =>
-			q
-				.from({ userHosts: collections.v2UsersHosts })
-				.innerJoin({ hosts: collections.v2Hosts }, ({ userHosts, hosts }) =>
-					eq(userHosts.hostId, hosts.machineId),
-				)
-				.where(({ userHosts, hosts }) =>
-					and(
-						eq(userHosts.userId, currentUserId ?? ""),
-						eq(hosts.organizationId, activeOrganizationId ?? ""),
-					),
-				)
-				.select(({ hosts }) => ({
-					machineId: hosts.machineId,
-					name: hosts.name,
-					isOnline: hosts.isOnline,
-				})),
-		[activeOrganizationId, collections, currentUserId],
-	);
+	const accessibleHosts = useAccessibleHosts(activeOrganizationId);
 
 	const localHost = useMemo(
 		() => accessibleHosts.find((host) => host.machineId === machineId) ?? null,
