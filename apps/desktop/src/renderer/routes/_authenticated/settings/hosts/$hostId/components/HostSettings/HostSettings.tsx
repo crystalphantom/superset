@@ -1,7 +1,9 @@
 import { toast } from "@superset/ui/sonner";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { useAccessibleHosts } from "renderer/routes/_authenticated/hooks/useAccessibleHosts";
 import {
@@ -49,6 +51,13 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 	const fallbackHost = accessibleHosts.find((row) => row.id === hostId);
 	const host = syncedHost ?? fallbackHost;
 
+	const cloudMembersQuery = useQuery({
+		queryKey: ["v2-host-members", activeOrganizationId, hostId],
+		enabled: !!activeOrganizationId && !!hostId,
+		retry: 1,
+		queryFn: () => apiTrpcClient.v2Host.members.query({ hostId }),
+	});
+
 	const { data: hostUserRows = [] } = useLiveQuery(
 		(q) =>
 			q
@@ -88,24 +97,46 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 	}, [orgUsers]);
 
 	const members: MemberRowData[] = useMemo(() => {
+		const cloudMembersById = new Map(
+			(cloudMembersQuery.data?.members ?? []).map((member) => [
+				member.userId,
+				member,
+			]),
+		);
+
+		if (hostUserRows.length === 0 && cloudMembersById.size > 0) {
+			return [...cloudMembersById.values()].map((member) => ({
+				usersHostsId: `${member.userId}:${hostId}`,
+				userId: member.userId,
+				role: member.role as "owner" | "member",
+				name: member.name,
+				email: member.email,
+			}));
+		}
+
 		return hostUserRows
 			.map((row) => {
 				const u = userMap.get(row.userId);
+				const cloudMember = cloudMembersById.get(row.userId);
 				return {
 					usersHostsId: `${row.userId}:${row.hostId}`,
 					userId: row.userId,
 					role: row.role as "owner" | "member",
-					name: u?.name ?? "Unknown user",
-					email: u?.email ?? "",
+					name: u?.name ?? cloudMember?.name ?? "Unknown user",
+					email: u?.email ?? cloudMember?.email ?? "",
 				};
 			})
 			.sort((a, b) => {
 				if (a.role !== b.role) return a.role === "owner" ? -1 : 1;
 				return a.name.localeCompare(b.name);
 			});
-	}, [hostUserRows, userMap]);
+	}, [cloudMembersQuery.data?.members, hostId, hostUserRows, userMap]);
 
 	const candidates: CandidateRow[] = useMemo(() => {
+		if (orgMembers.length === 0 && cloudMembersQuery.data?.candidates) {
+			return cloudMembersQuery.data.candidates;
+		}
+
 		const onHost = new Set(hostUserRows.map((r) => r.userId));
 		return orgMembers
 			.filter((m) => !onHost.has(m.userId))
@@ -118,14 +149,17 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				};
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
-	}, [orgMembers, hostUserRows, userMap]);
+	}, [cloudMembersQuery.data?.candidates, orgMembers, hostUserRows, userMap]);
 
 	const isOwner = useMemo(() => {
 		if (!currentUserId) return false;
+		if (hostUserRows.length === 0) {
+			return cloudMembersQuery.data?.currentUserRole === "owner";
+		}
 		return (
 			hostUserRows.find((r) => r.userId === currentUserId)?.role === "owner"
 		);
-	}, [hostUserRows, currentUserId]);
+	}, [cloudMembersQuery.data?.currentUserRole, hostUserRows, currentUserId]);
 
 	if (!host) {
 		return (
@@ -136,12 +170,12 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 	}
 
 	const handleAdd = (candidate: CandidateRow) => {
-		if (!syncedHost) return;
+		if (!host) return;
 		notifyOnPersist(
 			actions.v2UsersHosts.addMember({
 				hostId,
 				userId: candidate.userId,
-				organizationId: syncedHost.organizationId,
+				organizationId: host.organizationId,
 			}),
 			"Member added",
 		);

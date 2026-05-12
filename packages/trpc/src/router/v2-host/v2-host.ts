@@ -1,6 +1,6 @@
 import { db, dbWs } from "@superset/db/client";
 import { v2UsersHostRoleValues } from "@superset/db/enums";
-import { members, v2Hosts, v2UsersHosts } from "@superset/db/schema";
+import { members, users, v2Hosts, v2UsersHosts } from "@superset/db/schema";
 import { getCurrentTxid } from "@superset/db/utils";
 import { TRPCError, type TRPCRouterRecord } from "@trpc/server";
 import { and, eq, ne } from "drizzle-orm";
@@ -47,6 +47,45 @@ async function requireHostOwner(
 	return host;
 }
 
+async function requireHostAccess(
+	userId: string,
+	machineId: string,
+	organizationId: string,
+) {
+	const host = await db.query.v2Hosts.findFirst({
+		where: and(
+			eq(v2Hosts.organizationId, organizationId),
+			eq(v2Hosts.machineId, machineId),
+		),
+		columns: { machineId: true, organizationId: true, createdByUserId: true },
+	});
+
+	if (!host) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Host not found in this organization",
+		});
+	}
+
+	const access = await db.query.v2UsersHosts.findFirst({
+		where: and(
+			eq(v2UsersHosts.organizationId, organizationId),
+			eq(v2UsersHosts.userId, userId),
+			eq(v2UsersHosts.hostId, machineId),
+		),
+		columns: { role: true },
+	});
+
+	if (!access) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "You do not have access to this host",
+		});
+	}
+
+	return { host, access };
+}
+
 async function requireOrgMember(userId: string, organizationId: string) {
 	const member = await db.query.members.findFirst({
 		where: and(
@@ -65,6 +104,69 @@ async function requireOrgMember(userId: string, organizationId: string) {
 }
 
 export const v2HostRouter = {
+	members: protectedProcedure
+		.input(z.object({ hostId: z.string().min(1) }))
+		.query(async ({ ctx, input }) => {
+			const organizationId = requireActiveOrgId(ctx);
+			const { access } = await requireHostAccess(
+				ctx.session.user.id,
+				input.hostId,
+				organizationId,
+			);
+
+			const hostMembers = await db
+				.select({
+					userId: v2UsersHosts.userId,
+					role: v2UsersHosts.role,
+					name: users.name,
+					email: users.email,
+				})
+				.from(v2UsersHosts)
+				.leftJoin(users, eq(users.id, v2UsersHosts.userId))
+				.where(
+					and(
+						eq(v2UsersHosts.organizationId, organizationId),
+						eq(v2UsersHosts.hostId, input.hostId),
+					),
+				);
+
+			const organizationMembers = await db
+				.select({
+					userId: members.userId,
+					name: users.name,
+					email: users.email,
+				})
+				.from(members)
+				.leftJoin(users, eq(users.id, members.userId))
+				.where(eq(members.organizationId, organizationId));
+
+			const hostUserIds = new Set(hostMembers.map((member) => member.userId));
+
+			return {
+				organizationId,
+				currentUserRole: access.role,
+				members: hostMembers
+					.map((member) => ({
+						userId: member.userId,
+						role: member.role,
+						name: member.name ?? "Unknown user",
+						email: member.email ?? "",
+					}))
+					.sort((a, b) => {
+						if (a.role !== b.role) return a.role === "owner" ? -1 : 1;
+						return a.name.localeCompare(b.name);
+					}),
+				candidates: organizationMembers
+					.filter((member) => !hostUserIds.has(member.userId))
+					.map((member) => ({
+						userId: member.userId,
+						name: member.name ?? "Unknown user",
+						email: member.email ?? "",
+					}))
+					.sort((a, b) => a.name.localeCompare(b.name)),
+			};
+		}),
+
 	addMember: protectedProcedure
 		.input(
 			z.object({
