@@ -30,11 +30,12 @@ export async function connectRelay(
 			getAuthToken: () => options.authProvider.getJwt(),
 			localPort: options.localPort,
 			hostServiceSecret: options.hostServiceSecret,
-			onStatusChange: (isOnline) =>
-				options.api.host.setOnline.mutate({
+			onStatusChange: async (isOnline) => {
+				await options.api.host.setOnline.mutate({
 					hostId: buildHostRoutingKey(options.organizationId, host.machineId),
 					isOnline,
-				}),
+				});
+			},
 		});
 		void tunnel.connect();
 		return tunnel;
