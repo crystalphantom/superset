@@ -7,6 +7,67 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  validate-self-host-env:
+    name: Validate self-host env contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required release URLs
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
+          RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
+          SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
+          SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+        run: |
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_API_URL",
+            "NEXT_PUBLIC_WEB_URL",
+            "NEXT_PUBLIC_ELECTRIC_URL",
+            "RELAY_URL",
+            "SUPERSET_API_URL",
+            "SUPERSET_WEB_URL",
+          ];
+          const missing = required.filter((name) => !process.env[name]);
+          const invalid = required.filter((name) => {
+            const value = process.env[name];
+            if (!value) return false;
+            try {
+              new URL(value);
+              return false;
+            } catch {
+              return true;
+            }
+          });
+          const upstreamDefaults = new Map([
+            ["NEXT_PUBLIC_API_URL", "https://api.superset.sh"],
+            ["NEXT_PUBLIC_WEB_URL", "https://app.superset.sh"],
+            ["RELAY_URL", "https://relay.superset.sh"],
+            ["SUPERSET_API_URL", "https://api.superset.sh"],
+            ["SUPERSET_WEB_URL", "https://app.superset.sh"],
+          ]);
+          const upstream = required.filter((name) => {
+            const value = process.env[name];
+            const expected = upstreamDefaults.get(name);
+            if (!value || !expected) return false;
+            try {
+              return new URL(value).origin === expected;
+            } catch {
+              return false;
+            }
+          });
+
+          if (missing.length || invalid.length || upstream.length) {
+            if (missing.length) console.error(`Missing variables: ${missing.join(", ")}`);
+            if (invalid.length) console.error(`Invalid URL variables: ${invalid.join(", ")}`);
+            if (upstream.length) console.error(`Upstream default URLs are not allowed: ${upstream.join(", ")}`);
+            process.exit(1);
+          }
+
+          console.log("Self-host env contract OK");
+          NODE
+
   sherif:
     name: Sherif
     runs-on: ubuntu-latest
@@ -123,6 +184,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: validate-self-host-env
     steps:
       - name: Check out code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -156,6 +218,7 @@ jobs:
 
   build-cli:
     name: Build CLI
+    needs: validate-self-host-env
     uses: ./.github/workflows/build-cli.yml
     with:
       targets: '[{"os":"ubuntu-latest","target":"linux-x64"},{"os":"macos-14","target":"darwin-arm64"},{"os":"ubuntu-24.04-arm","target":"linux-arm64"}]'

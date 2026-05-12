@@ -376,3 +376,18 @@ Needs redesign if still required:
 - Cross-domain social auth handoff: use shared cookie domain where possible. If not possible, use a one-time signed exchange code bound to OAuth state/origin.
 - OAuth consent proxy: only keep if required by the final auth domain model.
 - Host status updates: ensure API expects machine id vs routing key before keeping the callback.
+
+
+
+
+- `SUPERSET_API_URL=https://superset-mvp-api.vercel.app`
+- `SUPERSET_WEB_URL=https://superset-mvp-web.vercel.app`
+- `RELAY_URL=https://superset-relay.hevo.dev`
+- `SUPERSET_OAUTH_CLIENT_ID=AfVhBqSjQUOCqMiVynIhrvgYXsFRHiKE`
+
+
+
+
+- `NEXT_PUBLIC_API_URL=https://superset-mvp-api.vercel.app`
+- `NEXT_PUBLIC_WEB_URL=https://superset-mvp-web.vercel.app`
+- `RELAY_URL=https://superset-relay.hevo.dev`

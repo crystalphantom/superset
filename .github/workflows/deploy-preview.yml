@@ -18,6 +18,8 @@ env:
   MARKETING_ALIAS: marketing-pr-${{ github.event.pull_request.number }}-superset.vercel.app
   ADMIN_ALIAS: admin-pr-${{ github.event.pull_request.number }}-superset.vercel.app
   DOCS_ALIAS: docs-pr-${{ github.event.pull_request.number }}-superset.vercel.app
+  PREVIEW_RELAY_URL: ${{ vars.PREVIEW_RELAY_URL || secrets.RELAY_URL || vars.RELAY_URL }}
+  PREVIEW_ELECTRIC_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_ELECTRIC_URL || secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
 
 jobs:
   deploy-database:
@@ -129,6 +131,7 @@ jobs:
           NEXT_PUBLIC_WEB_URL: https://${{ env.WEB_ALIAS }}
           NEXT_PUBLIC_MARKETING_URL: https://${{ env.MARKETING_ALIAS }}
           NEXT_PUBLIC_ADMIN_URL: https://${{ env.ADMIN_ALIAS }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ env.PREVIEW_ELECTRIC_URL }}
           NEXT_PUBLIC_COOKIE_DOMAIN: ${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -170,7 +173,7 @@ jobs:
           SLACK_BILLING_WEBHOOK_URL: ${{ secrets.SLACK_BILLING_WEBHOOK_URL }}
           SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_URL: ${{ env.PREVIEW_RELAY_URL }}
         run: |
           vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
           vercel build --token=$VERCEL_TOKEN
@@ -182,6 +185,7 @@ jobs:
             --env NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL \
             --env NEXT_PUBLIC_MARKETING_URL=$NEXT_PUBLIC_MARKETING_URL \
             --env NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL \
+            --env NEXT_PUBLIC_ELECTRIC_URL=$NEXT_PUBLIC_ELECTRIC_URL \
             --env NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN \
             --env BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET \
             --env GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
@@ -294,6 +298,8 @@ jobs:
           NEXT_PUBLIC_MARKETING_URL: https://${{ env.MARKETING_ALIAS }}
           NEXT_PUBLIC_ADMIN_URL: https://${{ env.ADMIN_ALIAS }}
           NEXT_PUBLIC_DOCS_URL: https://${{ env.DOCS_ALIAS }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ env.PREVIEW_ELECTRIC_URL }}
+          RELAY_URL: ${{ env.PREVIEW_RELAY_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           NEXT_PUBLIC_COOKIE_DOMAIN: ${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
@@ -325,6 +331,8 @@ jobs:
             --env NEXT_PUBLIC_MARKETING_URL=$NEXT_PUBLIC_MARKETING_URL \
             --env NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL \
             --env NEXT_PUBLIC_DOCS_URL=$NEXT_PUBLIC_DOCS_URL \
+            --env NEXT_PUBLIC_ELECTRIC_URL=$NEXT_PUBLIC_ELECTRIC_URL \
+            --env RELAY_URL=$RELAY_URL \
             --env NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN \
             --env NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY \
             --env NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST \
@@ -361,6 +369,7 @@ jobs:
   deploy-marketing:
     name: Deploy Marketing
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_MARKETING_PREVIEWS == 'true'
     environment: preview
     needs: deploy-database
 
@@ -475,6 +484,7 @@ jobs:
   deploy-admin:
     name: Deploy Admin
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_ADMIN_PREVIEWS == 'true'
     environment: preview
     needs: deploy-database
 
@@ -593,6 +603,7 @@ jobs:
   deploy-docs:
     name: Deploy Docs
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_DOCS_PREVIEWS == 'true'
     environment: preview
     needs: deploy-database
 
@@ -700,12 +711,12 @@ jobs:
           API_LINK="Failed to deploy"
           WEB_STATUS="❌"
           WEB_LINK="Failed to deploy"
-          MARKETING_STATUS="❌"
-          MARKETING_LINK="Failed to deploy"
-          ADMIN_STATUS="❌"
-          ADMIN_LINK="Failed to deploy"
-          DOCS_STATUS="❌"
-          DOCS_LINK="Failed to deploy"
+          MARKETING_STATUS="⏭️"
+          MARKETING_LINK="Disabled by DEPLOY_MARKETING_PREVIEWS"
+          ADMIN_STATUS="⏭️"
+          ADMIN_LINK="Disabled by DEPLOY_ADMIN_PREVIEWS"
+          DOCS_STATUS="⏭️"
+          DOCS_LINK="Disabled by DEPLOY_DOCS_PREVIEWS"
 
           if [[ "${{ needs.deploy-database.result }}" == "success" ]]; then
             source database-status.env
@@ -719,15 +730,24 @@ jobs:
             source web-status.env
           fi
 
-          if [[ "${{ needs.deploy-marketing.result }}" == "success" ]]; then
+          if [[ "${{ needs.deploy-marketing.result }}" == "failure" ]]; then
+            MARKETING_STATUS="❌"
+            MARKETING_LINK="Failed to deploy"
+          elif [[ "${{ needs.deploy-marketing.result }}" == "success" ]]; then
             source marketing-status.env
           fi
 
-          if [[ "${{ needs.deploy-admin.result }}" == "success" ]]; then
+          if [[ "${{ needs.deploy-admin.result }}" == "failure" ]]; then
+            ADMIN_STATUS="❌"
+            ADMIN_LINK="Failed to deploy"
+          elif [[ "${{ needs.deploy-admin.result }}" == "success" ]]; then
             source admin-status.env
           fi
 
-          if [[ "${{ needs.deploy-docs.result }}" == "success" ]]; then
+          if [[ "${{ needs.deploy-docs.result }}" == "failure" ]]; then
+            DOCS_STATUS="❌"
+            DOCS_LINK="Failed to deploy"
+          elif [[ "${{ needs.deploy-docs.result }}" == "success" ]]; then
             source docs-status.env
           fi
 

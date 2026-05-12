@@ -90,6 +90,63 @@ jobs:
         working-directory: apps/desktop
         run: bun run generate:icons
 
+      - name: Validate self-host URL inputs
+        env:
+          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
+          RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
+          SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
+          SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+        run: |
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_WEB_URL",
+            "NEXT_PUBLIC_API_URL",
+            "NEXT_PUBLIC_ELECTRIC_URL",
+            "RELAY_URL",
+            "SUPERSET_API_URL",
+            "SUPERSET_WEB_URL",
+          ];
+          const missing = required.filter((name) => !process.env[name]);
+          const invalid = required.filter((name) => {
+            const value = process.env[name];
+            if (!value) return false;
+            try {
+              new URL(value);
+              return false;
+            } catch {
+              return true;
+            }
+          });
+          const upstreamDefaults = new Map([
+            ["NEXT_PUBLIC_API_URL", "https://api.superset.sh"],
+            ["NEXT_PUBLIC_WEB_URL", "https://app.superset.sh"],
+            ["RELAY_URL", "https://relay.superset.sh"],
+            ["SUPERSET_API_URL", "https://api.superset.sh"],
+            ["SUPERSET_WEB_URL", "https://app.superset.sh"],
+          ]);
+          const upstream = required.filter((name) => {
+            const value = process.env[name];
+            const expected = upstreamDefaults.get(name);
+            if (!value || !expected) return false;
+            try {
+              return new URL(value).origin === expected;
+            } catch {
+              return false;
+            }
+          });
+
+          if (missing.length || invalid.length || upstream.length) {
+            if (missing.length) console.error(`Missing variables: ${missing.join(", ")}`);
+            if (invalid.length) console.error(`Invalid URL variables: ${invalid.join(", ")}`);
+            if (upstream.length) console.error(`Upstream default URLs are not allowed: ${upstream.join(", ")}`);
+            process.exit(1);
+          }
+
+          console.log("Desktop release URL inputs OK");
+          NODE
+
       - name: Compile app with electron-vite
         working-directory: apps/desktop
         env:
@@ -97,14 +154,16 @@ jobs:
           NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
-          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_STREAMS_URL: ${{ secrets.NEXT_PUBLIC_STREAMS_URL }}
-          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
+          SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
+          SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
           SUPERSET_WORKSPACE_NAME: superset
           TARGET_ARCH: ${{ matrix.arch }}
         run: bun run compile:app
@@ -223,6 +282,63 @@ jobs:
         working-directory: apps/desktop
         run: bun run generate:icons
 
+      - name: Validate self-host URL inputs
+        env:
+          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
+          RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
+          SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
+          SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+        run: |
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_WEB_URL",
+            "NEXT_PUBLIC_API_URL",
+            "NEXT_PUBLIC_ELECTRIC_URL",
+            "RELAY_URL",
+            "SUPERSET_API_URL",
+            "SUPERSET_WEB_URL",
+          ];
+          const missing = required.filter((name) => !process.env[name]);
+          const invalid = required.filter((name) => {
+            const value = process.env[name];
+            if (!value) return false;
+            try {
+              new URL(value);
+              return false;
+            } catch {
+              return true;
+            }
+          });
+          const upstreamDefaults = new Map([
+            ["NEXT_PUBLIC_API_URL", "https://api.superset.sh"],
+            ["NEXT_PUBLIC_WEB_URL", "https://app.superset.sh"],
+            ["RELAY_URL", "https://relay.superset.sh"],
+            ["SUPERSET_API_URL", "https://api.superset.sh"],
+            ["SUPERSET_WEB_URL", "https://app.superset.sh"],
+          ]);
+          const upstream = required.filter((name) => {
+            const value = process.env[name];
+            const expected = upstreamDefaults.get(name);
+            if (!value || !expected) return false;
+            try {
+              return new URL(value).origin === expected;
+            } catch {
+              return false;
+            }
+          });
+
+          if (missing.length || invalid.length || upstream.length) {
+            if (missing.length) console.error(`Missing variables: ${missing.join(", ")}`);
+            if (invalid.length) console.error(`Invalid URL variables: ${invalid.join(", ")}`);
+            if (upstream.length) console.error(`Upstream default URLs are not allowed: ${upstream.join(", ")}`);
+            process.exit(1);
+          }
+
+          console.log("Desktop release URL inputs OK");
+          NODE
+
       - name: Compile app with electron-vite
         working-directory: apps/desktop
         env:
@@ -230,14 +346,16 @@ jobs:
           NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
-          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_STREAMS_URL: ${{ secrets.NEXT_PUBLIC_STREAMS_URL }}
-          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
+          SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
+          SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
           SUPERSET_WORKSPACE_NAME: superset
           TARGET_ARCH: x64
         run: bun run compile:app

@@ -7,6 +7,10 @@ on:
 
 env:
   VERCEL_CLI_VERSION: 50.22.1
+  NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+  NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
+  NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
+  RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
 
 jobs:
   deploy-database:
@@ -75,10 +79,11 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ env.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL }}
           NEXT_PUBLIC_ADMIN_URL: ${{ secrets.NEXT_PUBLIC_ADMIN_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ env.NEXT_PUBLIC_ELECTRIC_URL }}
           NEXT_PUBLIC_COOKIE_DOMAIN: ${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
@@ -121,7 +126,7 @@ jobs:
           SLACK_BILLING_WEBHOOK_URL: ${{ secrets.SLACK_BILLING_WEBHOOK_URL }}
           SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_URL: ${{ env.RELAY_URL }}
         run: |
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           vercel build --prod --token=$VERCEL_TOKEN
@@ -133,6 +138,7 @@ jobs:
             --env NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL \
             --env NEXT_PUBLIC_MARKETING_URL=$NEXT_PUBLIC_MARKETING_URL \
             --env NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL \
+            --env NEXT_PUBLIC_ELECTRIC_URL=$NEXT_PUBLIC_ELECTRIC_URL \
             --env NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN \
             --env BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET \
             --env GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
@@ -210,11 +216,13 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ env.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL }}
           NEXT_PUBLIC_ADMIN_URL: ${{ secrets.NEXT_PUBLIC_ADMIN_URL }}
           NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ env.NEXT_PUBLIC_ELECTRIC_URL }}
+          RELAY_URL: ${{ env.RELAY_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           NEXT_PUBLIC_COOKIE_DOMAIN: ${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
@@ -246,6 +254,8 @@ jobs:
             --env NEXT_PUBLIC_MARKETING_URL=$NEXT_PUBLIC_MARKETING_URL \
             --env NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL \
             --env NEXT_PUBLIC_DOCS_URL=$NEXT_PUBLIC_DOCS_URL \
+            --env NEXT_PUBLIC_ELECTRIC_URL=$NEXT_PUBLIC_ELECTRIC_URL \
+            --env RELAY_URL=$RELAY_URL \
             --env NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN \
             --env NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY \
             --env NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST \
@@ -267,6 +277,7 @@ jobs:
   deploy-marketing:
     name: Deploy Marketing to Vercel
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_MARKETING == 'true'
     environment: production
     needs: deploy-database
 
@@ -354,6 +365,7 @@ jobs:
   deploy-admin:
     name: Deploy Admin to Vercel
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_ADMIN == 'true'
     environment: production
     needs: deploy-database
 
@@ -446,6 +458,7 @@ jobs:
     name: Deploy Electric Proxy to Cloudflare
     runs-on: ubuntu-latest
     environment: production
+    needs: deploy-database
 
     steps:
       - name: Checkout repository
@@ -466,16 +479,48 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen --ignore-scripts
 
+      - name: Typecheck Worker
+        working-directory: apps/electric-proxy
+        run: bun run typecheck
+
+      - name: Configure Worker secrets
+        working-directory: apps/electric-proxy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          ELECTRIC_SHAPE_URL: ${{ secrets.ELECTRIC_SHAPE_URL }}
+          ELECTRIC_SECRET: ${{ secrets.ELECTRIC_SECRET }}
+          ELECTRIC_SOURCE_ID: ${{ secrets.ELECTRIC_SOURCE_ID }}
+          ELECTRIC_SOURCE_SECRET: ${{ secrets.ELECTRIC_SOURCE_SECRET }}
+        run: |
+          set -euo pipefail
+
+          put_secret() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | bunx wrangler secret put "$name"
+            fi
+          }
+
+          put_secret AUTH_URL "$AUTH_URL"
+          put_secret ELECTRIC_SHAPE_URL "$ELECTRIC_SHAPE_URL"
+          put_secret ELECTRIC_SECRET "$ELECTRIC_SECRET"
+          put_secret ELECTRIC_SOURCE_ID "$ELECTRIC_SOURCE_ID"
+          put_secret ELECTRIC_SOURCE_SECRET "$ELECTRIC_SOURCE_SECRET"
+
       - name: Deploy Worker
         working-directory: apps/electric-proxy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: bunx wrangler deploy
+        run: bun run deploy
 
   deploy-docs:
     name: Deploy Docs to Vercel
     runs-on: ubuntu-latest
+    if: vars.DEPLOY_DOCS == 'true'
     environment: production
     needs: deploy-database
 
@@ -528,3 +573,43 @@ jobs:
             --env NEXT_PUBLIC_SENTRY_DSN_DOCS=$NEXT_PUBLIC_SENTRY_DSN_DOCS \
             --env NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
             --env SECRETS_ENCRYPTION_KEY=$SECRETS_ENCRYPTION_KEY
+
+  smoke:
+    name: Post-deploy smoke checks
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [deploy-api, deploy-web, deploy-electric-proxy]
+
+    steps:
+      - name: Check production endpoints
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WEB_URL: ${{ env.NEXT_PUBLIC_WEB_URL }}
+          NEXT_PUBLIC_ELECTRIC_URL: ${{ env.NEXT_PUBLIC_ELECTRIC_URL }}
+          RELAY_URL: ${{ env.RELAY_URL }}
+        run: |
+          set -euo pipefail
+
+          require_url() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "::error::$name is not configured"
+              exit 1
+            fi
+            node -e "new URL(process.argv[1])" "$value"
+          }
+
+          trim_slash() {
+            printf '%s' "${1%/}"
+          }
+
+          require_url NEXT_PUBLIC_API_URL "$NEXT_PUBLIC_API_URL"
+          require_url NEXT_PUBLIC_WEB_URL "$NEXT_PUBLIC_WEB_URL"
+          require_url NEXT_PUBLIC_ELECTRIC_URL "$NEXT_PUBLIC_ELECTRIC_URL"
+          require_url RELAY_URL "$RELAY_URL"
+
+          curl --fail --silent --show-error --location "$(trim_slash "$NEXT_PUBLIC_API_URL")/api/auth/jwks" >/dev/null
+          curl --fail --silent --show-error --location "$NEXT_PUBLIC_WEB_URL" >/dev/null
+          curl --fail --silent --show-error --location "$(trim_slash "$RELAY_URL")/health" >/dev/null
+          curl --fail --silent --show-error --request OPTIONS "$(trim_slash "$NEXT_PUBLIC_ELECTRIC_URL")/v1/shape" >/dev/null
