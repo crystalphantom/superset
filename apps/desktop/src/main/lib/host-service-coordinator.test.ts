@@ -61,7 +61,6 @@ mock.module("electron-log/main", () => ({
 	},
 }));
 
-mock.module("@superset/local-db", () => ({ settings: {} }));
 mock.module("@superset/shared/host-info", () => ({
 	getHostId: () => "host-1",
 	getHostName: () => "host",
@@ -79,10 +78,6 @@ mock.module("./local-db", () => ({
 	localDb: {
 		select: () => ({ from: () => ({ get: () => null }) }),
 	},
-}));
-mock.module("./terminal/env", () => ({ HOOK_PROTOCOL_VERSION: "1" }));
-mock.module("../../lib/trpc/routers/workspaces/utils/shell-env", () => ({
-	getProcessEnvWithShellPath: async (e: Record<string, string>) => e,
 }));
 
 const { HostServiceCoordinator } = await import("./host-service-coordinator");
