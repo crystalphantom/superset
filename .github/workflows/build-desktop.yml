@@ -103,7 +103,7 @@ jobs:
           SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: |
           node <<'NODE'
-          const required = [
+          const requiredUrls = [
             "NEXT_PUBLIC_WEB_URL",
             "NEXT_PUBLIC_API_URL",
             "NEXT_PUBLIC_MARKETING_URL",
@@ -112,10 +112,11 @@ jobs:
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
-            "SUPERSET_OAUTH_CLIENT_ID",
           ];
-          const missing = required.filter((name) => !process.env[name]);
-          const invalid = required.filter((name) => {
+          const requiredValues = ["SUPERSET_OAUTH_CLIENT_ID"];
+          const missing = requiredUrls.filter((name) => !process.env[name]);
+          missing.push(...requiredValues.filter((name) => !process.env[name]));
+          const invalid = requiredUrls.filter((name) => {
             const value = process.env[name];
             if (!value) return false;
             try {
@@ -134,7 +135,7 @@ jobs:
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
           ]);
-          const upstream = required.filter((name) => {
+          const upstream = requiredUrls.filter((name) => {
             const value = process.env[name];
             const expected = upstreamDefaults.get(name);
             if (!value || !expected) return false;
@@ -305,7 +306,7 @@ jobs:
           SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: |
           node <<'NODE'
-          const required = [
+          const requiredUrls = [
             "NEXT_PUBLIC_WEB_URL",
             "NEXT_PUBLIC_API_URL",
             "NEXT_PUBLIC_MARKETING_URL",
@@ -314,10 +315,11 @@ jobs:
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
-            "SUPERSET_OAUTH_CLIENT_ID",
           ];
-          const missing = required.filter((name) => !process.env[name]);
-          const invalid = required.filter((name) => {
+          const requiredValues = ["SUPERSET_OAUTH_CLIENT_ID"];
+          const missing = requiredUrls.filter((name) => !process.env[name]);
+          missing.push(...requiredValues.filter((name) => !process.env[name]));
+          const invalid = requiredUrls.filter((name) => {
             const value = process.env[name];
             if (!value) return false;
             try {
@@ -336,7 +338,7 @@ jobs:
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
           ]);
-          const upstream = required.filter((name) => {
+          const upstream = requiredUrls.filter((name) => {
             const value = process.env[name];
             const expected = upstreamDefaults.get(name);
             if (!value || !expected) return false;
