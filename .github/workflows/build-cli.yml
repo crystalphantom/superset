@@ -68,10 +68,13 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: |
           node <<'NODE'
           const required = ["RELAY_URL", "SUPERSET_API_URL", "SUPERSET_WEB_URL"];
+          const requiredValues = ["SUPERSET_OAUTH_CLIENT_ID"];
           const missing = required.filter((name) => !process.env[name]);
+          missing.push(...requiredValues.filter((name) => !process.env[name]));
           const invalid = required.filter((name) => {
             const value = process.env[name];
             if (!value) return false;
@@ -113,6 +116,7 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: bun run build:dist --target=${{ matrix.target }}
 
       - name: Smoke test binary

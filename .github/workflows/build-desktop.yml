@@ -94,19 +94,25 @@ jobs:
         env:
           NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL || vars.NEXT_PUBLIC_MARKETING_URL }}
+          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL || vars.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: |
           node <<'NODE'
           const required = [
             "NEXT_PUBLIC_WEB_URL",
             "NEXT_PUBLIC_API_URL",
+            "NEXT_PUBLIC_MARKETING_URL",
+            "NEXT_PUBLIC_DOCS_URL",
             "NEXT_PUBLIC_ELECTRIC_URL",
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
+            "SUPERSET_OAUTH_CLIENT_ID",
           ];
           const missing = required.filter((name) => !process.env[name]);
           const invalid = required.filter((name) => {
@@ -122,6 +128,8 @@ jobs:
           const upstreamDefaults = new Map([
             ["NEXT_PUBLIC_API_URL", "https://api.superset.sh"],
             ["NEXT_PUBLIC_WEB_URL", "https://app.superset.sh"],
+            ["NEXT_PUBLIC_MARKETING_URL", "https://superset.sh"],
+            ["NEXT_PUBLIC_DOCS_URL", "https://docs.superset.sh"],
             ["RELAY_URL", "https://relay.superset.sh"],
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
@@ -156,7 +164,8 @@ jobs:
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
           NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
+          NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL || vars.NEXT_PUBLIC_MARKETING_URL }}
+          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL || vars.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_STREAMS_URL: ${{ secrets.NEXT_PUBLIC_STREAMS_URL }}
           NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -164,6 +173,7 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
           SUPERSET_WORKSPACE_NAME: superset
           TARGET_ARCH: ${{ matrix.arch }}
         run: bun run compile:app
@@ -286,19 +296,25 @@ jobs:
         env:
           NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL || vars.NEXT_PUBLIC_MARKETING_URL }}
+          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL || vars.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
         run: |
           node <<'NODE'
           const required = [
             "NEXT_PUBLIC_WEB_URL",
             "NEXT_PUBLIC_API_URL",
+            "NEXT_PUBLIC_MARKETING_URL",
+            "NEXT_PUBLIC_DOCS_URL",
             "NEXT_PUBLIC_ELECTRIC_URL",
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
+            "SUPERSET_OAUTH_CLIENT_ID",
           ];
           const missing = required.filter((name) => !process.env[name]);
           const invalid = required.filter((name) => {
@@ -314,6 +330,8 @@ jobs:
           const upstreamDefaults = new Map([
             ["NEXT_PUBLIC_API_URL", "https://api.superset.sh"],
             ["NEXT_PUBLIC_WEB_URL", "https://app.superset.sh"],
+            ["NEXT_PUBLIC_MARKETING_URL", "https://superset.sh"],
+            ["NEXT_PUBLIC_DOCS_URL", "https://docs.superset.sh"],
             ["RELAY_URL", "https://relay.superset.sh"],
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
@@ -348,7 +366,8 @@ jobs:
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
           NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL || vars.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
+          NEXT_PUBLIC_MARKETING_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_URL || vars.NEXT_PUBLIC_MARKETING_URL }}
+          NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL || vars.NEXT_PUBLIC_DOCS_URL }}
           NEXT_PUBLIC_STREAMS_URL: ${{ secrets.NEXT_PUBLIC_STREAMS_URL }}
           NEXT_PUBLIC_ELECTRIC_URL: ${{ secrets.NEXT_PUBLIC_ELECTRIC_URL || vars.NEXT_PUBLIC_ELECTRIC_URL }}
           SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -356,6 +375,7 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL || vars.RELAY_URL }}
           SUPERSET_API_URL: ${{ vars.SUPERSET_API_URL || secrets.SUPERSET_API_URL }}
           SUPERSET_WEB_URL: ${{ vars.SUPERSET_WEB_URL || secrets.SUPERSET_WEB_URL }}
+          SUPERSET_OAUTH_CLIENT_ID: ${{ vars.SUPERSET_OAUTH_CLIENT_ID || secrets.SUPERSET_OAUTH_CLIENT_ID }}
           SUPERSET_WORKSPACE_NAME: superset
           TARGET_ARCH: x64
         run: bun run compile:app

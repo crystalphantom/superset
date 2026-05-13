@@ -4,8 +4,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "dotenv -e ../../.env -- sh -c 'exec wrangler dev --port ${WRANGLER_PORT:-8787}'",
-		"deploy": "wrangler deploy",
+		"dev": "dotenv -e ../../.env -- sh -c 'exec bunx wrangler dev --port ${WRANGLER_PORT:-8787}'",
+		"deploy": "bunx wrangler deploy",
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false"
 	},
 	"dependencies": {
