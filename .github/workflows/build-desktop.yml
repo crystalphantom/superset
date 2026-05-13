@@ -188,7 +188,13 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TARGET_ARCH: ${{ matrix.arch }}
-        run: bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --${{ matrix.arch }}
+        run: |
+          if [ -z "${CSC_LINK:-}" ]; then
+            echo "No macOS signing certificate configured; building unsigned package."
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --${{ matrix.arch }}
 
       - name: Verify app-update.yml exists
         working-directory: apps/desktop
