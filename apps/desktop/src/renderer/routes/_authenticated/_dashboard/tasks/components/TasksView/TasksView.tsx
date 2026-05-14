@@ -1,11 +1,20 @@
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useLinearConnection } from "renderer/hooks/useLinearConnection";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useTasksFilterStore } from "../../stores/tasks-filter-state";
 import { BoardContent } from "./components/BoardContent";
-import { GitHubIssuesContent } from "./components/GitHubIssuesContent";
+import {
+	GitHubIssuesContent,
+	type SelectedIssue,
+} from "./components/GitHubIssuesContent";
 import { LinearCTA } from "./components/LinearCTA";
 import { PullRequestsContent } from "./components/PullRequestsContent";
 import { TableContent } from "./components/TableContent";
@@ -31,6 +40,7 @@ export function TasksView({
 	const collections = useCollections();
 	const currentTab: TabValue = initialTab ?? "all";
 	const [searchQuery, setSearchQuery] = useState(initialSearch ?? "");
+	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const assigneeFilter = initialAssignee ?? null;
 	const typeTab = initialType ?? "tasks";
 	const projectFilter = initialProject ?? null;
@@ -180,6 +190,21 @@ export function TasksView({
 		clearSelectionRef.current?.();
 	}, []);
 
+	const [selectedIssues, setSelectedIssues] = useState<SelectedIssue[]>([]);
+	const clearIssueSelectionRef = useRef<(() => void) | null>(null);
+
+	const handleIssueSelectionChange = useCallback(
+		(issues: SelectedIssue[], clearSelection: () => void) => {
+			setSelectedIssues(issues);
+			clearIssueSelectionRef.current = clearSelection;
+		},
+		[],
+	);
+
+	const handleClearIssueSelection = useCallback(() => {
+		clearIssueSelectionRef.current?.();
+	}, []);
+
 	const handleTaskClick = (task: TaskWithStatus) => {
 		navigate({
 			to: "/tasks/$taskId",
@@ -207,6 +232,8 @@ export function TasksView({
 					onAssigneeFilterChange={handleAssigneeFilterChange}
 					selectedTasks={selectedTasks}
 					onClearSelection={handleClearSelection}
+					selectedIssues={selectedIssues}
+					onClearIssueSelection={handleClearIssueSelection}
 					viewMode={viewMode}
 					onViewModeChange={setViewMode}
 					typeTab={typeTab}
@@ -224,14 +251,14 @@ export function TasksView({
 						(viewMode === "board" ? (
 							<BoardContent
 								filterTab={currentTab}
-								searchQuery={searchQuery}
+								searchQuery={deferredSearchQuery}
 								assigneeFilter={assigneeFilter}
 								onTaskClick={handleTaskClick}
 							/>
 						) : (
 							<TableContent
 								filterTab={currentTab}
-								searchQuery={searchQuery}
+								searchQuery={deferredSearchQuery}
 								assigneeFilter={assigneeFilter}
 								onTaskClick={handleTaskClick}
 								onSelectionChange={handleSelectionChange}
@@ -240,13 +267,14 @@ export function TasksView({
 					{showPRs && (
 						<PullRequestsContent
 							projectFilter={projectFilter}
-							searchQuery={searchQuery}
+							searchQuery={deferredSearchQuery}
 						/>
 					)}
 					{showIssues && (
 						<GitHubIssuesContent
 							projectFilter={projectFilter}
-							searchQuery={searchQuery}
+							searchQuery={deferredSearchQuery}
+							onSelectionChange={handleIssueSelectionChange}
 						/>
 					)}
 				</div>

@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	test,
+} from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
@@ -27,7 +35,9 @@ const removeManifestMock = mock(() => {
 });
 const isProcessAliveMock = mock(() => true);
 
+const realHostServiceManifest = await import("./host-service-manifest");
 mock.module("./host-service-manifest", () => ({
+	...realHostServiceManifest,
 	readManifest: readManifestMock,
 	removeManifest: removeManifestMock,
 	isProcessAlive: isProcessAliveMock,
@@ -37,7 +47,9 @@ mock.module("./host-service-manifest", () => ({
 
 const pollHealthCheckMock = mock(() => Promise.resolve(true));
 
+const realHostServiceUtils = await import("./host-service-utils");
 mock.module("./host-service-utils", () => ({
+	...realHostServiceUtils,
 	HEALTH_POLL_TIMEOUT_MS: 10_000,
 	MAX_HOST_LOG_BYTES: 1024,
 	findFreePort: mock(() => Promise.resolve(40000)),
@@ -61,18 +73,11 @@ mock.module("electron-log/main", () => ({
 	},
 }));
 
+const realHostInfo = await import("@superset/shared/host-info");
 mock.module("@superset/shared/host-info", () => ({
+	...realHostInfo,
 	getHostId: () => "host-1",
 	getHostName: () => "host",
-}));
-mock.module("main/env.main", () => ({
-	env: { NEXT_PUBLIC_API_URL: "", RELAY_URL: "" },
-}));
-mock.module("shared/env.shared", () => ({
-	env: { DESKTOP_VITE_PORT: 3000, DESKTOP_NOTIFICATIONS_PORT: 4000 },
-}));
-mock.module("./app-environment", () => ({
-	SUPERSET_HOME_DIR: "/tmp/superset",
 }));
 mock.module("./local-db", () => ({
 	localDb: {
@@ -183,17 +188,69 @@ describe("HostServiceCoordinator.tryAdopt — adoption health check", () => {
 		expect(conn.port).toBe(60000);
 	});
 
-	test("kills with SIGTERM (existing behavior) on app-version mismatch, before health check", async () => {
+	test("adopts a healthy service when only the app-version changed", async () => {
 		manifestStore.current = {
 			...baseManifest(5555),
 			spawnedByAppVersion: "0.9.0",
 		};
+		pollHealthCheckMock.mockImplementationOnce(() => Promise.resolve(true));
 
 		const conn = await coordinator.start("org-1", spawnConfig);
 
-		// App-version gate runs before the new health check.
-		expect(pollHealthCheckMock).not.toHaveBeenCalled();
-		expect(killedPids).toContainEqual({ pid: 5555, signal: "SIGTERM" });
+		expect(pollHealthCheckMock).toHaveBeenCalledTimes(1);
+		expect(killedPids).toHaveLength(0);
+		expect(removeManifestMock).not.toHaveBeenCalled();
+		expect(spawnMock).not.toHaveBeenCalled();
+		expect(conn.port).toBe(55555);
+		expect(conn.secret).toBe("manifest-secret");
+		expect(coordinator.getProcessStatus("org-1")).toBe("running");
+	});
+
+	test("kills an unhealthy app-version mismatch with SIGKILL after health check", async () => {
+		manifestStore.current = {
+			...baseManifest(5556),
+			spawnedByAppVersion: "0.9.0",
+		};
+		pollHealthCheckMock.mockImplementationOnce(() => Promise.resolve(false));
+
+		const conn = await coordinator.start("org-1", spawnConfig);
+
+		expect(pollHealthCheckMock).toHaveBeenCalledTimes(1);
+		expect(killedPids).toContainEqual({ pid: 5556, signal: "SIGKILL" });
+		expect(removeManifestMock).toHaveBeenCalledTimes(1);
+		expect(spawnMock).toHaveBeenCalledTimes(1);
+		expect(conn.port).toBe(60000);
+	});
+
+	test("adopts a healthy pre-upgrade manifest with no recorded app version", async () => {
+		manifestStore.current = {
+			...baseManifest(5557),
+			spawnedByAppVersion: "",
+		};
+		pollHealthCheckMock.mockImplementationOnce(() => Promise.resolve(true));
+
+		const conn = await coordinator.start("org-1", spawnConfig);
+
+		expect(pollHealthCheckMock).toHaveBeenCalledTimes(1);
+		expect(killedPids).toHaveLength(0);
+		expect(removeManifestMock).not.toHaveBeenCalled();
+		expect(spawnMock).not.toHaveBeenCalled();
+		expect(conn.port).toBe(55555);
+		expect(conn.secret).toBe("manifest-secret");
+		expect(coordinator.getProcessStatus("org-1")).toBe("running");
+	});
+
+	test("kills an unhealthy pre-upgrade manifest with SIGKILL after health check", async () => {
+		manifestStore.current = {
+			...baseManifest(5558),
+			spawnedByAppVersion: "",
+		};
+		pollHealthCheckMock.mockImplementationOnce(() => Promise.resolve(false));
+
+		const conn = await coordinator.start("org-1", spawnConfig);
+
+		expect(pollHealthCheckMock).toHaveBeenCalledTimes(1);
+		expect(killedPids).toContainEqual({ pid: 5558, signal: "SIGKILL" });
 		expect(removeManifestMock).toHaveBeenCalledTimes(1);
 		expect(spawnMock).toHaveBeenCalledTimes(1);
 		expect(conn.port).toBe(60000);
@@ -284,4 +341,8 @@ describe("HostServiceCoordinator.reset", () => {
 		expect(spawnMock).toHaveBeenCalledTimes(1);
 		expect(conn.port).toBe(60000);
 	});
+});
+
+afterAll(() => {
+	mock.restore();
 });

@@ -24,16 +24,20 @@ import {
 	workspaces,
 } from "@superset/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { QueryBuilder } from "drizzle-orm/pg-core";
 import type { WhereClause } from "./auth";
 
-function build(table: PgTable, column: PgColumn, id: string): WhereClause {
+function build(
+	table: unknown,
+	column: { name: string },
+	id: string,
+): WhereClause {
 	const whereExpr = eq(sql`${sql.identifier(column.name)}`, id);
 	const qb = new QueryBuilder();
 	const { sql: query, params } = qb
 		.select()
-		.from(table)
+		.from(table as PgTable)
 		.where(whereExpr)
 		.toSQL();
 	const fragment = query.replace(/^select .* from .* where\s+/i, "");
@@ -93,7 +97,7 @@ export function buildWhereClause(
 			const qb = new QueryBuilder();
 			const { sql: query, params } = qb
 				.select()
-				.from(organizations)
+				.from(organizations as unknown as PgTable)
 				.where(whereExpr)
 				.toSQL();
 			const fragment = query.replace(/^select .* from .* where\s+/i, "");

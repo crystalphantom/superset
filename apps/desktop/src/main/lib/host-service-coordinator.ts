@@ -7,7 +7,6 @@ import { settings } from "@superset/local-db";
 import { getHostId, getHostName } from "@superset/shared/host-info";
 import { app } from "electron";
 import log from "electron-log/main";
-import { env } from "main/env.main";
 import { env as sharedEnv } from "shared/env.shared";
 import { getProcessEnvWithShellPath } from "../../lib/trpc/routers/workspaces/utils/shell-env";
 import { SUPERSET_HOME_DIR } from "./app-environment";
@@ -27,6 +26,7 @@ import {
 	pollHealthCheck,
 } from "./host-service-utils";
 import { localDb } from "./local-db";
+import { getRelayUrl } from "./relay-url";
 import { HOOK_PROTOCOL_VERSION } from "./terminal/env";
 
 export type HostServiceStatus = "starting" | "running" | "stopped";
@@ -333,13 +333,8 @@ export class HostServiceCoordinator extends EventEmitter {
 				? `spawned by app ${manifest.spawnedByAppVersion} != current ${currentAppVersion}`
 				: "no recorded app version (pre-upgrade manifest)";
 			log.info(
-				`[host-service:${organizationId}] Adopted service ${reason}, killing`,
+				`[host-service:${organizationId}] Adopted service ${reason}, checking health before reuse`,
 			);
-			try {
-				process.kill(manifest.pid, "SIGTERM");
-			} catch {}
-			removeManifest(organizationId);
-			return null;
 		}
 
 		// A live pid is not the same as a serving host-service — the process can
@@ -443,7 +438,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		let child: ReturnType<typeof childProcess.spawn>;
 		try {
 			// Prod: detached so PTYs survive Electron restarts via manifest
-			// adoption (HOST_SERVICE_LIFECYCLE.md). Dev: attached so a `bun dev`
+			// adoption (docs/HOST_SERVICE_LIFECYCLE.md). Dev: attached so a `bun dev`
 			// kill propagates and serve.ts's dev shutdown can stop pty-daemon.
 			child = childProcess.spawn(process.execPath, [this.scriptPath], {
 				detached: !isDev,
@@ -520,6 +515,9 @@ export class HostServiceCoordinator extends EventEmitter {
 		const childEnv = await getProcessEnvWithShellPath({
 			...(process.env as Record<string, string>),
 			ELECTRON_RUN_AS_NODE: "1",
+			NODE_ENV: app.isPackaged
+				? "production"
+				: (process.env.NODE_ENV ?? "development"),
 			ORGANIZATION_ID: organizationId,
 			HOST_CLIENT_ID: getHostId(),
 			HOST_NAME: getHostName(),
@@ -541,9 +539,13 @@ export class HostServiceCoordinator extends EventEmitter {
 
 		// `getProcessEnvWithShellPath` merges in the user's interactive shell env,
 		// which in dev has `RELAY_URL` set. Enforce the toggle *after* that merge
-		// so the child definitely doesn't see a relay URL when disabled.
-		if (exposeViaRelay && env.RELAY_URL) {
-			childEnv.RELAY_URL = env.RELAY_URL;
+		// so the child definitely doesn't see a relay URL when disabled. The
+		// effective URL comes from the PostHog `relay-url-override` flag with
+		// `env.RELAY_URL` as fallback (see main/lib/relay-url) so we can A/B-test
+		// alternate relay deployments per-user.
+		const effectiveRelayUrl = await getRelayUrl();
+		if (exposeViaRelay && effectiveRelayUrl) {
+			childEnv.RELAY_URL = effectiveRelayUrl;
 		} else {
 			delete childEnv.RELAY_URL;
 		}
