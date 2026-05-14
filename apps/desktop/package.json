@@ -201,7 +201,7 @@
 		"native-keymap": "3.3.9",
 		"node-addon-api": "7.1.1",
 		"node-pty": "1.1.0",
-		"os-locale": "6.0.2",
+		"os-locale": "8.0.0",
 		"pidtree": "0.6.0",
 		"pidusage": "4.0.1",
 		"posthog-js": "1.310.1",
