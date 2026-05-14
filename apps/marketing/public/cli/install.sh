@@ -4,12 +4,15 @@
 # Usage:
 #   curl -fsSL https://superset.sh/cli/install.sh | sh
 #
+# For fork/self-hosted releases:
+#   SUPERSET_CLI_RELEASE_REPO=owner/repo curl -fsSL https://.../install.sh | sh
+#
 # Installs the Superset CLI and host-service to ~/superset/.
 # Adds ~/superset/bin to PATH via your shell profile.
 
 set -eu
 
-REPO="superset-sh/superset"
+REPO="${SUPERSET_CLI_RELEASE_REPO:-${SUPERSET_RELEASE_REPO:-crystalphantom/superset}}"
 INSTALL_DIR="${SUPERSET_HOME:-$HOME/superset}"
 TAG="${SUPERSET_VERSION:-latest}"
 

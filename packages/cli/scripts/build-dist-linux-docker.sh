@@ -34,9 +34,9 @@ docker run --rm --platform "$PLATFORM" \
   -e TARGET="$TARGET" \
   -e NODE_ARCH="$NODE_ARCH" \
   -e NODE_VERSION="$NODE_VERSION" \
-  -e RELAY_URL="${RELAY_URL:-https://relay.superset.sh}" \
-  -e SUPERSET_API_URL="${SUPERSET_API_URL:-https://api.superset.sh}" \
-  -e SUPERSET_WEB_URL="${SUPERSET_WEB_URL:-https://app.superset.sh}" \
+  -e RELAY_URL="${RELAY_URL:-https://superset-relay.hevo.dev}" \
+  -e SUPERSET_API_URL="${SUPERSET_API_URL:-https://superset-mvp-api.vercel.app}" \
+  -e SUPERSET_WEB_URL="${SUPERSET_WEB_URL:-https://superset-mvp-web.vercel.app}" \
   "oven/bun:${BUN_VERSION}" bash -euxc '
     apt-get update -qq
     apt-get install -y --no-install-recommends \

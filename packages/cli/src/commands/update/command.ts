@@ -22,8 +22,12 @@ import { env } from "../../lib/env";
 // `/releases/latest` endpoint, which doesn't filter by tag prefix) keeps the
 // CLI's update channel independent of desktop releases — which would otherwise
 // shadow CLI on `/releases/latest`.
-const ROLLING_DOWNLOAD_BASE =
-	"https://github.com/superset-sh/superset/releases/download/cli-latest";
+const CLI_RELEASE_REPO =
+	process.env.SUPERSET_CLI_RELEASE_REPO ||
+	process.env.SUPERSET_RELEASE_REPO ||
+	"crystalphantom/superset";
+const CLI_RELEASE_BASE = `https://github.com/${CLI_RELEASE_REPO}/releases/download`;
+const ROLLING_DOWNLOAD_BASE = `${CLI_RELEASE_BASE}/cli-latest`;
 
 function detectTarget(): string {
 	const arch = process.arch === "arm64" ? "arm64" : "x64";
@@ -58,7 +62,7 @@ function tarballUrl(target: string, version?: string): string {
 	if (!version) {
 		return `${ROLLING_DOWNLOAD_BASE}/superset-${target}.tar.gz`;
 	}
-	return `https://github.com/superset-sh/superset/releases/download/cli-v${version}/superset-${target}.tar.gz`;
+	return `${CLI_RELEASE_BASE}/cli-v${version}/superset-${target}.tar.gz`;
 }
 
 const SEMVER_RE = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?$/;
