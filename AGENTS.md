@@ -8,6 +8,104 @@ When you need to ask the user ANY question — including simple yes/no, confirma
 
 Guidelines for agents and developers working in this repository.
 
+## Project Context
+
+This workspace started as the open-source Superset project from the
+`superset.sh` team, but it is being adapted for the owner's own use cases.
+Expect significant product, deployment, and workflow changes that may diverge
+from upstream.
+
+The primary customization goal is remote-host management. The owner runs
+multiple remote VMs and is using the current Superset desktop app as the
+control surface for managing those hosts, remote workspaces, terminal/file/git
+access, and agent execution. Treat this as a major product direction when
+making architectural or UX decisions.
+
+## Git Remotes And Branch Context
+
+This workspace uses two GitHub remotes:
+
+- `origin` points to the original upstream project:
+  `https://github.com/superset-sh/superset.git`
+- `cp` points to the owner's fork/repository:
+  `git@cp:crystalphantom/superset.git`
+
+Run CI/CD, releases, and GitHub Actions from the owner's GitHub repository, not
+from the upstream project. The package download instructions in
+`docs/download-packages.md` currently use releases from
+`crystalphantom/superset`.
+
+Desktop auto-updates and desktop release tooling should use
+`crystalphantom/superset` release assets. The local release helper defaults to
+the `cp` git remote and the owner repo; do not push desktop release tags to the
+upstream `origin` remote unless explicitly asked.
+
+Always check the active branch before making or summarizing changes. At the
+time this context was added, the active branch was `feat/bypass-paywall`; do
+not assume that remains true in later sessions.
+
+Preferred branch model:
+
+- `main` should remain the upstream/original source-of-truth branch.
+- `dev` should be treated as the owner's primary product branch for active
+  customization, CI, deployments, and release tags.
+- Cut owner CLI/desktop release tags from `dev` unless explicitly instructed
+  otherwise.
+- Do not retarget CI/CD back to upstream `main` without confirming the intended
+  branch model.
+
+## Deployment Context
+
+Follow the original Superset deployment configuration unless the task
+explicitly changes it. The current MVP/self-host deployment context is
+documented in `plans/mvp-self-host-deployment.md`:
+
+- `apps/web` deploys to Vercel.
+- `apps/api` deploys to Vercel.
+- `apps/relay` is prepared and deployed as a Docker image.
+- `apps/electric-proxy` deploys to Cloudflare Workers via Wrangler.
+- Postgres runs on Neon.
+- Upstash Redis is used for the MVP Redis/KV needs.
+- Custom CLI and desktop builds should point at the owner's deployed MVP URLs.
+
+Keep the remote-host workflow central when evaluating deployment changes: the
+critical path is remote VMs connecting through the relay, desktop discovering
+those hosts, and users opening/managing remote workspaces from desktop.
+
+Operational references:
+
+- Current self-host divergence tracker:
+  `plans/self-host-divergence-notes.md`
+- Self-host CI/CD deployment plan:
+  `plans/self-host-cicd-deployment-plan.md`
+- Remote host access and operations notes:
+  `docs/remote-hosts.md`
+
+Use the installed provider CLIs to discover, debug, and manage remote
+deployments when possible. Prefer CLI/API inspection over guessing from code or
+stale docs:
+
+- `gh` for owner-repo GitHub Actions, releases, PRs, issues, and repo
+  variables/secrets metadata.
+- `vercel` for `apps/web` and `apps/api` project linkage, env inspection,
+  deployments, domains, and logs.
+- `neon` for Neon projects, branches, connection strings, and database
+  diagnostics. Never touch production data or run migrations unless explicitly
+  asked and confirmed.
+- `wrangler` for Cloudflare Workers, especially `apps/electric-proxy` deploys,
+  logs, secrets, routes, and environment inspection.
+- Cloudflare account tooling/API may also be used for DNS, Worker routes, and
+  account-level checks when Wrangler does not expose the needed detail.
+- `coolify` for relay deployment management, especially the `superset-relay`
+  Docker app, deploy status, logs, branch selection, and forced redeploys.
+- `docker` for local relay image builds, container health checks, and image
+  debugging.
+- `ssh` for remote VM/host inspection when host-level state matters.
+
+For remote hosts, start from read-only diagnostics (`status`, `logs`, `env`
+shape, process lists, health checks) before changing services. Be explicit in
+summaries about which provider/project/branch/host was inspected or changed.
+
 ## Structure
 
 Bun + Turbo monorepo with:
@@ -172,3 +270,7 @@ The `src/components/ui/` and `src/components/ai-elements` directories contain sh
 - `NEON_ORG_ID` and `NEON_PROJECT_ID` env vars are set in .env
 - list_projects tool requires org_id passed in
 - **NEVER manually edit files in `packages/db/drizzle/`** - this includes `.sql` migration files, `meta/_journal.json`, and snapshot files. These are auto-generated by Drizzle. If you need to create a migration, only modify the schema files in `packages/db/src/schema/` and ask the user to run `drizzle-kit generate`.
+
+
+
+Refer : [Self-host-env](../plans/local/self-host-env-inventory.md)

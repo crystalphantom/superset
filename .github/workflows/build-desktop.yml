@@ -193,6 +193,10 @@ jobs:
             echo "No macOS signing certificate configured; building unsigned package."
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
             export CSC_IDENTITY_AUTO_DISCOVERY=false
+          elif [ -d "${CSC_LINK}" ]; then
+            echo "::warning::MAC_CERTIFICATE resolved to directory '${CSC_LINK}', not a certificate file/base64/URL; building unsigned package."
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
           fi
           bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --${{ matrix.arch }}
 

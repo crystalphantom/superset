@@ -268,3 +268,21 @@ Join the Superset community to get help, share feedback, and connect with other 
 ## License
 
 Distributed under the Elastic License 2.0 (ELv2). See [LICENSE.md](LICENSE.md) for more information.
+# To run the desktop app locally
+
+```bash
+osascript -e 'quit app "Superset"' || true
+  pkill -f Superset || true
+
+  rm -rf ~/Library/Caches/com.superset.desktop.ShipIt
+  rm -rf ~/Library/Caches/com.superset.desktop
+  rm -rf ~/Library/Saved\ Application\ State/com.superset.desktop.savedState
+
+  rm -rf /Applications/Superset.app
+
+  Then reinstall your DMG, copy Superset.app into /Applications, and
+  remove quarantine:
+
+  xattr -dr com.apple.quarantine /Applications/Superset.app
+  open /Applications/Superset.app
+```

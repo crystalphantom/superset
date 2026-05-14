@@ -25,7 +25,7 @@ const config: Configuration = {
 
 	publish: {
 		provider: "github",
-		owner: "superset-sh",
+		owner: "crystalphantom",
 		repo: "superset",
 		releaseType: "prerelease",
 	},

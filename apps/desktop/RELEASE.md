@@ -32,7 +32,7 @@ The script will:
 To publish a draft:
 
 ```bash
-gh release edit desktop-v0.0.50 --draft=false
+gh release edit desktop-v0.0.50 -R crystalphantom/superset --draft=false
 ```
 
 ### Requirements
@@ -46,7 +46,7 @@ If you prefer not to use the script:
 
 ```bash
 git tag desktop-v1.0.0
-git push origin desktop-v1.0.0
+git push cp desktop-v1.0.0
 ```
 
 This creates a draft release. Publish it manually at GitHub Releases.
@@ -55,10 +55,10 @@ This creates a draft release. Publish it manually at GitHub Releases.
 
 The app checks for updates at launch and every x hours using:
 
-- **macOS manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-mac.yml`
-- **Linux manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-linux.yml`
-- **macOS installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-arm64.dmg`
-- **Linux installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-x64.AppImage`
+- **macOS manifest**: `https://github.com/crystalphantom/superset/releases/latest/download/latest-mac.yml`
+- **Linux manifest**: `https://github.com/crystalphantom/superset/releases/latest/download/latest-linux.yml`
+- **macOS installer**: `https://github.com/crystalphantom/superset/releases/latest/download/Superset-arm64.dmg`
+- **Linux installer**: `https://github.com/crystalphantom/superset/releases/latest/download/Superset-x86_64.AppImage`
 
 The workflow creates stable-named copies (without version) so these URLs always point to the latest build.
 

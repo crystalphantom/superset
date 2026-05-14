@@ -40,6 +40,10 @@
 
 set -e  # Exit on error
 
+RELEASE_REMOTE="${RELEASE_REMOTE:-cp}"
+RELEASE_REPO="${RELEASE_REPO:-crystalphantom/superset}"
+RELEASE_BASE_BRANCH="${RELEASE_BASE_BRANCH:-}"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -138,7 +142,7 @@ if [ -z "$VERSION" ]; then
 
     # Fetch the latest desktop release version from GitHub
     # Desktop releases use tags like "desktop-v0.0.1"
-    LATEST_TAG=$(gh release list --json tagName --jq '[.[] | select(.tagName | startswith("desktop-v"))] | .[0].tagName' 2>/dev/null || echo "")
+    LATEST_TAG=$(gh release list -R "${RELEASE_REPO}" --json tagName --jq '[.[] | select(.tagName | startswith("desktop-v"))] | .[0].tagName' 2>/dev/null || echo "")
     if [ -n "$LATEST_TAG" ]; then
         # Extract version from tag (e.g., "desktop-v0.0.1" -> "0.0.1")
         CURRENT_VERSION="${LATEST_TAG#desktop-v}"
@@ -199,7 +203,7 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 if [ "$AUTO_MERGE" = true ] && [ -n "$COMMIT_INPUT" ]; then
-    warn "--merge has no effect with a commit SHA (no PR is created); the temp release branch will remain on origin until you delete it."
+    warn "--merge has no effect with a commit SHA (no PR is created); the temp release branch will remain on ${RELEASE_REMOTE} until you delete it."
 fi
 
 TAG_NAME="desktop-v${VERSION}"
@@ -220,7 +224,20 @@ if ! gh auth status &> /dev/null; then
     error "Not authenticated with GitHub CLI.\nRun: gh auth login"
 fi
 
+if ! git remote get-url "${RELEASE_REMOTE}" &> /dev/null; then
+    error "Release remote '${RELEASE_REMOTE}' was not found.\nSet RELEASE_REMOTE to an existing git remote, or add the cp remote first."
+fi
+
+if [ -z "${RELEASE_BASE_BRANCH}" ]; then
+    if git ls-remote --exit-code --heads "${RELEASE_REMOTE}" dev >/dev/null 2>&1; then
+        RELEASE_BASE_BRANCH="dev"
+    else
+        RELEASE_BASE_BRANCH=$(gh repo view "${RELEASE_REPO}" --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || echo "main")
+    fi
+fi
+
 info "Starting release process for version ${VERSION}"
+info "Release target: ${RELEASE_REPO} via git remote ${RELEASE_REMOTE}; PR base ${RELEASE_BASE_BRANCH}"
 echo ""
 
 # Check if we're in the monorepo root
@@ -238,8 +255,8 @@ if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
     warn "Tag ${TAG_NAME} already exists!"
 
     # Check if there's also a GitHub release
-    if gh release view "${TAG_NAME}" &>/dev/null; then
-        RELEASE_STATUS=$(gh release view "${TAG_NAME}" --json isDraft --jq 'if .isDraft then "draft" else "published"' 2>/dev/null || echo "unknown")
+    if gh release view "${TAG_NAME}" -R "${RELEASE_REPO}" &>/dev/null; then
+        RELEASE_STATUS=$(gh release view "${TAG_NAME}" -R "${RELEASE_REPO}" --json isDraft --jq 'if .isDraft then "draft" else "published"' 2>/dev/null || echo "unknown")
         echo -e "  GitHub release: ${YELLOW}${RELEASE_STATUS}${NC}"
     else
         echo -e "  GitHub release: ${YELLOW}none${NC}"
@@ -258,15 +275,15 @@ if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
             info "Cleaning up for republish..."
 
             # Delete the GitHub release if it exists
-            if gh release view "${TAG_NAME}" &>/dev/null; then
+            if gh release view "${TAG_NAME}" -R "${RELEASE_REPO}" &>/dev/null; then
                 info "Deleting existing GitHub release..."
-                gh release delete "${TAG_NAME}" --yes
+                gh release delete "${TAG_NAME}" -R "${RELEASE_REPO}" --yes
                 success "Deleted existing release"
             fi
 
             # Delete remote tag
             info "Deleting remote tag..."
-            git push origin --delete "${TAG_NAME}" 2>/dev/null || true
+            git push "${RELEASE_REMOTE}" --delete "${TAG_NAME}" 2>/dev/null || true
             success "Deleted remote tag"
 
             # Delete local tag
@@ -296,9 +313,9 @@ if [ -n "$COMMIT_INPUT" ]; then
 
     info "Releasing from commit ${SHORT_SHA} via temp branch ${TEMP_BRANCH}"
 
-    if git ls-remote --exit-code --heads origin "${TEMP_BRANCH}" >/dev/null 2>&1; then
+    if git ls-remote --exit-code --heads "${RELEASE_REMOTE}" "${TEMP_BRANCH}" >/dev/null 2>&1; then
         info "Existing remote branch ${TEMP_BRANCH} found — deleting"
-        git push origin --delete "${TEMP_BRANCH}" >/dev/null 2>&1 || true
+        git push "${RELEASE_REMOTE}" --delete "${TEMP_BRANCH}" >/dev/null 2>&1 || true
     fi
 
     WORKTREE_DIR=$(mktemp -d -t superset-release-XXXXXX)
@@ -326,12 +343,12 @@ if [ -n "$COMMIT_INPUT" ]; then
     fi
 
     info "Pushing temp branch ${TEMP_BRANCH}..."
-    git push origin "HEAD:refs/heads/${TEMP_BRANCH}"
+    git push "${RELEASE_REMOTE}" "HEAD:refs/heads/${TEMP_BRANCH}"
     success "Temp branch pushed"
 
     info "Creating tag ${TAG_NAME} on temp branch tip..."
     git tag "${TAG_NAME}"
-    git push origin "${TAG_NAME}"
+    git push "${RELEASE_REMOTE}" "${TAG_NAME}"
     success "Tag ${TAG_NAME} pushed"
     popd >/dev/null
 
@@ -368,15 +385,15 @@ else
     # 4. Push changes and create PR if needed
     info "Pushing changes to remote..."
     CURRENT_BRANCH=$(git branch --show-current)
-    git push -u origin "HEAD:${CURRENT_BRANCH}"
+    git push -u "${RELEASE_REMOTE}" "HEAD:${CURRENT_BRANCH}"
     success "Changes pushed to ${CURRENT_BRANCH}"
 
-    # Create PR if not on main branch
-    MAIN_BRANCH="main"
+    # Create PR if not on the configured release base branch
+    MAIN_BRANCH="${RELEASE_BASE_BRANCH}"
     PR_NUMBER=""
     if [ "${CURRENT_BRANCH}" != "${MAIN_BRANCH}" ]; then
         # Check if PR already exists for this branch
-        EXISTING_PR=$(gh pr list --head "${CURRENT_BRANCH}" --json number --jq '.[0].number' 2>/dev/null || echo "")
+        EXISTING_PR=$(gh pr list -R "${RELEASE_REPO}" --head "${CURRENT_BRANCH}" --json number --jq '.[0].number' 2>/dev/null || echo "")
 
         if [ -n "$EXISTING_PR" ]; then
             info "PR #${EXISTING_PR} already exists for branch ${CURRENT_BRANCH}"
@@ -391,7 +408,7 @@ else
                 info "Creating pull request..."
                 # Disable set -e temporarily to capture exit code
                 set +e
-                PR_URL=$(gh pr create \
+                PR_URL=$(gh pr create -R "${RELEASE_REPO}" \
                     --title "chore(desktop): bump version to ${VERSION}" \
                     --body "Bumps desktop app version to ${VERSION}.
 
@@ -418,7 +435,7 @@ This PR was automatically created by the release script." \
     success "Tag ${TAG_NAME} created"
 
     info "Pushing tag to trigger release workflow..."
-    git push origin "${TAG_NAME}"
+    git push "${RELEASE_REMOTE}" "${TAG_NAME}"
     success "Tag pushed to remote"
 fi
 
@@ -429,7 +446,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 
 # Get repository information
-REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+REPO="${RELEASE_REPO}"
 
 # 6. Monitor the workflow
 info "Monitoring GitHub Actions workflow..."
@@ -444,6 +461,7 @@ WORKFLOW_RUN=""
 while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$WORKFLOW_RUN" ]; do
     sleep 5
     WORKFLOW_RUN=$(gh run list \
+        -R "${RELEASE_REPO}" \
         --workflow=release-desktop.yml \
         --json databaseId,headSha,event,createdAt \
         --jq ".[] | select(.headSha == \"${TAG_SHA}\" and .event == \"push\") | .databaseId" \
@@ -469,10 +487,10 @@ else
     echo ""
 
     # Watch the workflow (this will stream the status)
-    gh run watch "${WORKFLOW_RUN}" || warn "Workflow monitoring interrupted"
+    gh run watch "${WORKFLOW_RUN}" -R "${RELEASE_REPO}" || warn "Workflow monitoring interrupted"
 
     # Check final status
-    WORKFLOW_STATUS=$(gh run view "${WORKFLOW_RUN}" --json conclusion --jq .conclusion)
+    WORKFLOW_STATUS=$(gh run view "${WORKFLOW_RUN}" -R "${RELEASE_REPO}" --json conclusion --jq .conclusion)
 
     if [ "$WORKFLOW_STATUS" == "success" ]; then
         success "Workflow completed successfully!"
@@ -495,7 +513,7 @@ RELEASE_FOUND=""
 
 while [ $RELEASE_RETRY_COUNT -lt $MAX_RELEASE_RETRIES ] && [ -z "$RELEASE_FOUND" ]; do
     sleep 3
-    RELEASE_FOUND=$(gh release list --json tagName,isDraft --jq ".[] | select(.tagName == \"${TAG_NAME}\") | .tagName")
+    RELEASE_FOUND=$(gh release list -R "${RELEASE_REPO}" --json tagName,isDraft --jq ".[] | select(.tagName == \"${TAG_NAME}\") | .tagName")
     RELEASE_RETRY_COUNT=$((RELEASE_RETRY_COUNT + 1))
 
     if [ -z "$RELEASE_FOUND" ] && [ $RELEASE_RETRY_COUNT -lt $MAX_RELEASE_RETRIES ]; then
@@ -513,13 +531,13 @@ else
     if [ "$AUTO_PUBLISH" = true ]; then
         # Publish the release
         info "Publishing release..."
-        gh release edit "${TAG_NAME}" --draft=false
+        gh release edit "${TAG_NAME}" -R "${RELEASE_REPO}" --draft=false
         success "Release published!"
 
         # Merge the PR if one exists and --merge flag was provided
         if [ "$AUTO_MERGE" = true ] && [ -n "$PR_NUMBER" ]; then
             info "Merging PR #${PR_NUMBER}..."
-            if gh pr merge "${PR_NUMBER}" --squash --delete-branch; then
+            if gh pr merge "${PR_NUMBER}" -R "${RELEASE_REPO}" --squash --delete-branch; then
                 success "PR #${PR_NUMBER} merged and branch deleted"
             else
                 warn "Could not merge PR #${PR_NUMBER}. You may need to merge it manually."
@@ -536,7 +554,7 @@ else
         echo ""
         echo -e "${BLUE}Direct download:${NC}"
         echo "  • ${LATEST_URL}/download/Superset-arm64.dmg"
-        echo "  • ${LATEST_URL}/download/Superset-x64.AppImage"
+        echo "  • ${LATEST_URL}/download/Superset-x86_64.AppImage"
         echo ""
     else
         success "Draft release created!"
@@ -549,7 +567,7 @@ else
         echo -e "${BLUE}Review URL:${NC} ${RELEASE_URL}"
         echo ""
         echo "To publish:"
-        echo "  gh release edit ${TAG_NAME} --draft=false"
+        echo "  gh release edit ${TAG_NAME} -R ${RELEASE_REPO} --draft=false"
         echo ""
     fi
 fi

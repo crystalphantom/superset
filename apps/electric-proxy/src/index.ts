@@ -8,7 +8,7 @@ const CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Methods": "GET, OPTIONS",
 	"Access-Control-Allow-Headers": "Authorization, Content-Type",
 	"Access-Control-Expose-Headers":
-		"electric-handle, electric-offset, electric-schema, electric-up-to-date, electric-cursor",
+		"electric-handle, electric-offset, electric-schema, electric-up-to-date, electric-cursor, electric-has-data, electric-internal-known-error, retry-after",
 };
 
 function corsResponse(status: number, body: string): Response {
@@ -25,6 +25,10 @@ function addCorsHeaders(response: Response): Response {
 		headers.set(key, value);
 	}
 	headers.set("Vary", "Authorization");
+	if (response.status >= 500) {
+		headers.set("Cache-Control", "no-store");
+		headers.delete("ETag");
+	}
 	return new Response(response.body, {
 		status: response.status,
 		statusText: response.statusText,
@@ -88,7 +92,14 @@ export default {
 
 		const response = await fetch(upstreamUrl.toString(), {
 			headers: upstreamHeaders,
-			cf: { cacheEverything: true },
+			cf: {
+				cacheEverything: true,
+				cacheTtlByStatus: {
+					"200-299": 5,
+					"300-499": 0,
+					"500-599": 0,
+				},
+			},
 		});
 
 		return addCorsHeaders(response);

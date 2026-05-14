@@ -3,6 +3,9 @@ name: Bump Homebrew Formula
 # Triggers when a CLI release (tag matching cli-v*) is published, computes
 # SHA256 for each platform tarball, and pushes an updated formula to the
 # superset-sh/homebrew-tap repository.
+#
+# Disabled for the self-host fork until Homebrew distribution is intentionally
+# retargeted to an owner-controlled tap and owner-controlled release URLs.
 
 on:
   release:
@@ -15,7 +18,7 @@ concurrency:
 
 jobs:
   bump:
-    if: startsWith(github.event.release.tag_name, 'cli-v')
+    if: ${{ vars.ENABLE_HOMEBREW_BUMP == 'true' && startsWith(github.event.release.tag_name, 'cli-v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Extract version from tag
