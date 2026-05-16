@@ -23,6 +23,20 @@ const dmgBackgroundPath = join(
 	"build/installer/background.tiff",
 );
 
+function getDesktopReleaseRepo(): { owner: string; repo: string } {
+	const repoNameWithOwner =
+		process.env.DESKTOP_RELEASE_REPO ?? "crystalphantom/superset";
+	const [owner, repo] = repoNameWithOwner.split("/");
+	if (!owner || !repo) {
+		throw new Error(
+			`DESKTOP_RELEASE_REPO must be formatted as "owner/repo"; received "${repoNameWithOwner}"`,
+		);
+	}
+	return { owner, repo };
+}
+
+const desktopReleaseRepo = getDesktopReleaseRepo();
+
 const config: Configuration = {
 	appId: "com.superset.desktop",
 	productName,
@@ -36,8 +50,8 @@ const config: Configuration = {
 	// Generate latest-mac.yml for auto-update (workflow handles actual upload)
 	publish: {
 		provider: "github",
-		owner: "crystalphantom",
-		repo: "superset",
+		owner: desktopReleaseRepo.owner,
+		repo: desktopReleaseRepo.repo,
 	},
 
 	// Directories

@@ -18,6 +18,20 @@ const canaryMacIconPath = join(pkg.resources, "build/icons/icon-canary.icns");
 const canaryLinuxIconPath = join(pkg.resources, "build/icons/icon-canary.png");
 const canaryWinIconPath = join(pkg.resources, "build/icons/icon-canary.ico");
 
+function getDesktopReleaseRepo(): { owner: string; repo: string } {
+	const repoNameWithOwner =
+		process.env.DESKTOP_RELEASE_REPO ?? "crystalphantom/superset";
+	const [owner, repo] = repoNameWithOwner.split("/");
+	if (!owner || !repo) {
+		throw new Error(
+			`DESKTOP_RELEASE_REPO must be formatted as "owner/repo"; received "${repoNameWithOwner}"`,
+		);
+	}
+	return { owner, repo };
+}
+
+const desktopReleaseRepo = getDesktopReleaseRepo();
+
 const config: Configuration = {
 	...baseConfig,
 	appId: "com.superset.desktop.canary",
@@ -25,8 +39,8 @@ const config: Configuration = {
 
 	publish: {
 		provider: "github",
-		owner: "crystalphantom",
-		repo: "superset",
+		owner: desktopReleaseRepo.owner,
+		repo: desktopReleaseRepo.repo,
 		releaseType: "prerelease",
 	},
 

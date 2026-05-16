@@ -10,4 +10,5 @@ export type AutoUpdateStatus =
 	(typeof AUTO_UPDATE_STATUS)[keyof typeof AUTO_UPDATE_STATUS];
 
 export const RELEASES_URL =
+	process.env.DESKTOP_RELEASES_URL ??
 	"https://github.com/crystalphantom/superset/releases";

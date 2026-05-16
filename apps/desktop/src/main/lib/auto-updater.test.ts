@@ -68,6 +68,13 @@ describe("installUpdate", () => {
 		expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
 	});
 
+	test("uses the configured stable feed URL", () => {
+		expect(fakeAutoUpdater.setFeedURL).toHaveBeenLastCalledWith({
+			provider: "generic",
+			url: "https://github.com/crystalphantom/superset/releases/latest/download",
+		});
+	});
+
 	test("collapses repeat install clicks into a single quitAndInstall call", () => {
 		fakeAutoUpdater.emit("update-downloaded", { version: "9.9.9" });
 		expect(autoUpdater.getUpdateStatus().status).toBe(AUTO_UPDATE_STATUS.READY);

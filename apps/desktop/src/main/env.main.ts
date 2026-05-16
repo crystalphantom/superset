@@ -26,6 +26,24 @@ export const env = createEnv({
 		SENTRY_DSN_DESKTOP: z.string().optional(),
 		STREAMS_URL: z.url().default("https://superset-stream.fly.dev"),
 		RELAY_URL: z.url().default("https://relay.superset.sh"),
+		DESKTOP_RELEASE_REPO: z
+			.string()
+			.regex(/^[^/\s]+\/[^/\s]+$/)
+			.default("crystalphantom/superset"),
+		DESKTOP_RELEASES_URL: z
+			.url()
+			.default("https://github.com/crystalphantom/superset/releases"),
+		DESKTOP_STABLE_UPDATE_FEED_URL: z
+			.url()
+			.default(
+				"https://github.com/crystalphantom/superset/releases/latest/download",
+			),
+		DESKTOP_CANARY_RELEASE_TAG: z.string().min(1).default("desktop-canary"),
+		DESKTOP_CANARY_UPDATE_FEED_URL: z
+			.url()
+			.default(
+				"https://github.com/crystalphantom/superset/releases/download/desktop-canary",
+			),
 	},
 
 	runtimeEnv: {
@@ -43,6 +61,11 @@ export const env = createEnv({
 		SENTRY_DSN_DESKTOP: process.env.SENTRY_DSN_DESKTOP,
 		STREAMS_URL: process.env.STREAMS_URL,
 		RELAY_URL: process.env.RELAY_URL,
+		DESKTOP_RELEASE_REPO: process.env.DESKTOP_RELEASE_REPO,
+		DESKTOP_RELEASES_URL: process.env.DESKTOP_RELEASES_URL,
+		DESKTOP_STABLE_UPDATE_FEED_URL: process.env.DESKTOP_STABLE_UPDATE_FEED_URL,
+		DESKTOP_CANARY_RELEASE_TAG: process.env.DESKTOP_CANARY_RELEASE_TAG,
+		DESKTOP_CANARY_UPDATE_FEED_URL: process.env.DESKTOP_CANARY_UPDATE_FEED_URL,
 	},
 	emptyStringAsUndefined: true,
 	// Only allow skipping validation in development (never in production)

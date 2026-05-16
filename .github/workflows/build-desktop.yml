@@ -28,6 +28,13 @@ on:
         type: number
         default: 30
 
+env:
+  DESKTOP_RELEASE_REPO: ${{ vars.DESKTOP_RELEASE_REPO || 'crystalphantom/superset' }}
+  DESKTOP_RELEASES_URL: ${{ vars.DESKTOP_RELEASES_URL || 'https://github.com/crystalphantom/superset/releases' }}
+  DESKTOP_STABLE_UPDATE_FEED_URL: ${{ vars.DESKTOP_STABLE_UPDATE_FEED_URL || 'https://github.com/crystalphantom/superset/releases/latest/download' }}
+  DESKTOP_CANARY_RELEASE_TAG: ${{ vars.DESKTOP_CANARY_RELEASE_TAG || 'desktop-canary' }}
+  DESKTOP_CANARY_UPDATE_FEED_URL: ${{ vars.DESKTOP_CANARY_UPDATE_FEED_URL || 'https://github.com/crystalphantom/superset/releases/download/desktop-canary' }}
+
 jobs:
   build-macos:
     name: Build - macOS (${{ matrix.arch }})
@@ -109,11 +116,18 @@ jobs:
             "NEXT_PUBLIC_MARKETING_URL",
             "NEXT_PUBLIC_DOCS_URL",
             "NEXT_PUBLIC_ELECTRIC_URL",
+            "DESKTOP_RELEASES_URL",
+            "DESKTOP_STABLE_UPDATE_FEED_URL",
+            "DESKTOP_CANARY_UPDATE_FEED_URL",
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
           ];
-          const requiredValues = ["SUPERSET_OAUTH_CLIENT_ID"];
+          const requiredValues = [
+            "SUPERSET_OAUTH_CLIENT_ID",
+            "DESKTOP_RELEASE_REPO",
+            "DESKTOP_CANARY_RELEASE_TAG",
+          ];
           const missing = requiredUrls.filter((name) => !process.env[name]);
           missing.push(...requiredValues.filter((name) => !process.env[name]));
           const invalid = requiredUrls.filter((name) => {
@@ -135,8 +149,16 @@ jobs:
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
           ]);
+          const upstreamReleaseUrls = new Set([
+            "DESKTOP_RELEASES_URL",
+            "DESKTOP_STABLE_UPDATE_FEED_URL",
+            "DESKTOP_CANARY_UPDATE_FEED_URL",
+          ]);
           const upstream = requiredUrls.filter((name) => {
             const value = process.env[name];
+            if (value && upstreamReleaseUrls.has(name)) {
+              return value.includes("github.com/superset-sh/superset/");
+            }
             const expected = upstreamDefaults.get(name);
             if (!value || !expected) return false;
             try {
@@ -145,11 +167,15 @@ jobs:
               return false;
             }
           });
+          const invalidReleaseRepo =
+            !process.env.DESKTOP_RELEASE_REPO?.match(/^[^/\s]+\/[^/\s]+$/) ||
+            process.env.DESKTOP_RELEASE_REPO === "superset-sh/superset";
 
-          if (missing.length || invalid.length || upstream.length) {
+          if (missing.length || invalid.length || upstream.length || invalidReleaseRepo) {
             if (missing.length) console.error(`Missing variables: ${missing.join(", ")}`);
             if (invalid.length) console.error(`Invalid URL variables: ${invalid.join(", ")}`);
             if (upstream.length) console.error(`Upstream default URLs are not allowed: ${upstream.join(", ")}`);
+            if (invalidReleaseRepo) console.error("DESKTOP_RELEASE_REPO must be owner/repo and cannot be superset-sh/superset");
             process.exit(1);
           }
 
@@ -322,11 +348,18 @@ jobs:
             "NEXT_PUBLIC_MARKETING_URL",
             "NEXT_PUBLIC_DOCS_URL",
             "NEXT_PUBLIC_ELECTRIC_URL",
+            "DESKTOP_RELEASES_URL",
+            "DESKTOP_STABLE_UPDATE_FEED_URL",
+            "DESKTOP_CANARY_UPDATE_FEED_URL",
             "RELAY_URL",
             "SUPERSET_API_URL",
             "SUPERSET_WEB_URL",
           ];
-          const requiredValues = ["SUPERSET_OAUTH_CLIENT_ID"];
+          const requiredValues = [
+            "SUPERSET_OAUTH_CLIENT_ID",
+            "DESKTOP_RELEASE_REPO",
+            "DESKTOP_CANARY_RELEASE_TAG",
+          ];
           const missing = requiredUrls.filter((name) => !process.env[name]);
           missing.push(...requiredValues.filter((name) => !process.env[name]));
           const invalid = requiredUrls.filter((name) => {
@@ -348,8 +381,16 @@ jobs:
             ["SUPERSET_API_URL", "https://api.superset.sh"],
             ["SUPERSET_WEB_URL", "https://app.superset.sh"],
           ]);
+          const upstreamReleaseUrls = new Set([
+            "DESKTOP_RELEASES_URL",
+            "DESKTOP_STABLE_UPDATE_FEED_URL",
+            "DESKTOP_CANARY_UPDATE_FEED_URL",
+          ]);
           const upstream = requiredUrls.filter((name) => {
             const value = process.env[name];
+            if (value && upstreamReleaseUrls.has(name)) {
+              return value.includes("github.com/superset-sh/superset/");
+            }
             const expected = upstreamDefaults.get(name);
             if (!value || !expected) return false;
             try {
@@ -358,11 +399,15 @@ jobs:
               return false;
             }
           });
+          const invalidReleaseRepo =
+            !process.env.DESKTOP_RELEASE_REPO?.match(/^[^/\s]+\/[^/\s]+$/) ||
+            process.env.DESKTOP_RELEASE_REPO === "superset-sh/superset";
 
-          if (missing.length || invalid.length || upstream.length) {
+          if (missing.length || invalid.length || upstream.length || invalidReleaseRepo) {
             if (missing.length) console.error(`Missing variables: ${missing.join(", ")}`);
             if (invalid.length) console.error(`Invalid URL variables: ${invalid.join(", ")}`);
             if (upstream.length) console.error(`Upstream default URLs are not allowed: ${upstream.join(", ")}`);
+            if (invalidReleaseRepo) console.error("DESKTOP_RELEASE_REPO must be owner/repo and cannot be superset-sh/superset");
             process.exit(1);
           }
 

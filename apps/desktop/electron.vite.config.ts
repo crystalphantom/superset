@@ -94,6 +94,26 @@ export default defineConfig({
 				process.env.SENTRY_DSN_DESKTOP,
 			),
 			"process.env.RELAY_URL": defineEnv(process.env.RELAY_URL),
+			"process.env.DESKTOP_RELEASE_REPO": defineEnv(
+				process.env.DESKTOP_RELEASE_REPO,
+				"crystalphantom/superset",
+			),
+			"process.env.DESKTOP_RELEASES_URL": defineEnv(
+				process.env.DESKTOP_RELEASES_URL,
+				"https://github.com/crystalphantom/superset/releases",
+			),
+			"process.env.DESKTOP_STABLE_UPDATE_FEED_URL": defineEnv(
+				process.env.DESKTOP_STABLE_UPDATE_FEED_URL,
+				"https://github.com/crystalphantom/superset/releases/latest/download",
+			),
+			"process.env.DESKTOP_CANARY_RELEASE_TAG": defineEnv(
+				process.env.DESKTOP_CANARY_RELEASE_TAG,
+				"desktop-canary",
+			),
+			"process.env.DESKTOP_CANARY_UPDATE_FEED_URL": defineEnv(
+				process.env.DESKTOP_CANARY_UPDATE_FEED_URL,
+				"https://github.com/crystalphantom/superset/releases/download/desktop-canary",
+			),
 			// Must match renderer for analytics in main process
 			"process.env.NEXT_PUBLIC_POSTHOG_KEY": defineEnv(
 				process.env.NEXT_PUBLIC_POSTHOG_KEY,
@@ -218,6 +238,10 @@ export default defineConfig({
 				process.env.SENTRY_DSN_DESKTOP,
 			),
 			"process.env.RELAY_URL": defineEnv(process.env.RELAY_URL),
+			"process.env.DESKTOP_RELEASES_URL": defineEnv(
+				process.env.DESKTOP_RELEASES_URL,
+				"https://github.com/crystalphantom/superset/releases",
+			),
 			"process.env.STREAMS_URL": defineEnv(
 				process.env.STREAMS_URL,
 				"https://superset-stream.fly.dev",
