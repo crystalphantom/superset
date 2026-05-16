@@ -1,18 +1,12 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { authClient, setAuthToken, setJwt } from "renderer/lib/auth-client";
+import {
+	authClient,
+	refreshJwt,
+	setAuthToken,
+	setJwt,
+} from "renderer/lib/auth-client";
 import { SupersetLogo } from "renderer/routes/sign-in/components/SupersetLogo/SupersetLogo";
 import { electronTrpc } from "../../lib/electron-trpc";
-
-async function refreshJwt(reason: string): Promise<void> {
-	try {
-		const res = await authClient.token();
-		if (res.data?.token) {
-			setJwt(res.data.token);
-		}
-	} catch (err) {
-		console.warn(`[AuthProvider] JWT refresh failed ${reason}`, err);
-	}
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [isHydrated, setIsHydrated] = useState(false);

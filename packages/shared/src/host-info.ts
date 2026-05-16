@@ -6,6 +6,19 @@ import { homedir, hostname, platform } from "node:os";
 // Salt value preserved verbatim across the rename to keep existing host ids
 // stable for users already registered against the cloud.
 const APP_HOST_SALT = "superset-desktop-device-id-v1";
+const HOST_ID_OVERRIDE_ENV = "SUPERSET_HOST_ID";
+const HOST_ID_OVERRIDE_RE = /^[A-Za-z0-9._-]+$/;
+
+function getHostIdOverride(): string | null {
+	const value = process.env[HOST_ID_OVERRIDE_ENV]?.trim();
+	if (!value) return null;
+	if (!HOST_ID_OVERRIDE_RE.test(value)) {
+		throw new Error(
+			`${HOST_ID_OVERRIDE_ENV} may only contain letters, numbers, dots, underscores, or hyphens`,
+		);
+	}
+	return value;
+}
 
 function getRawMachineId(): string {
 	try {
@@ -67,6 +80,9 @@ let cachedHashedId: string | null = null;
  * This is the canonical identifier for a machine acting as a host or client.
  */
 export function getHostId(): string {
+	const override = getHostIdOverride();
+	if (override) return override;
+
 	if (!cachedHashedId) {
 		const machineId = getMachineId();
 		cachedHashedId = createHmac("sha256", APP_HOST_SALT)

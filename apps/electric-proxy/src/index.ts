@@ -12,7 +12,11 @@ const CORS_HEADERS: Record<string, string> = {
 };
 
 function corsResponse(status: number, body: string): Response {
-	return new Response(body, { status, headers: CORS_HEADERS });
+	const headers = new Headers(CORS_HEADERS);
+	if (status >= 400) {
+		headers.set("Cache-Control", "no-store");
+	}
+	return new Response(body, { status, headers });
 }
 
 function addCorsHeaders(response: Response): Response {
@@ -25,14 +29,45 @@ function addCorsHeaders(response: Response): Response {
 		headers.set(key, value);
 	}
 	headers.set("Vary", "Authorization");
+	headers.set("Cache-Control", "no-store");
 	if (response.status >= 500) {
-		headers.set("Cache-Control", "no-store");
 		headers.delete("ETag");
 	}
 	return new Response(response.body, {
 		status: response.status,
 		statusText: response.statusText,
 		headers,
+	});
+}
+
+function getRequestSummary(url: URL, tableName: string) {
+	return {
+		tableName,
+		hasCursor: url.searchParams.has("cursor"),
+		hasExpiredHandle: url.searchParams.has("expired_handle"),
+		hasHandle: url.searchParams.has("handle"),
+		hasOffset: url.searchParams.has("offset"),
+		live: url.searchParams.get("live") === "true",
+	};
+}
+
+async function logUpstreamFailure(
+	response: Response,
+	url: URL,
+	tableName: string,
+) {
+	let bodyPreview = "";
+	try {
+		bodyPreview = (await response.clone().text()).slice(0, 500);
+	} catch {
+		bodyPreview = "<unavailable>";
+	}
+
+	console.error("[electric-proxy] Electric upstream returned 5xx", {
+		status: response.status,
+		statusText: response.statusText,
+		...getRequestSummary(url, tableName),
+		bodyPreview,
 	});
 }
 
@@ -90,18 +125,22 @@ export default {
 		upstreamHeaders.delete("Authorization");
 		upstreamHeaders.delete("Cookie");
 
-		const response = await fetch(upstreamUrl.toString(), {
-			headers: upstreamHeaders,
-			cf: {
-				cacheEverything: true,
-				cacheTtlByStatus: {
-					"200-299": 5,
-					"300-499": 0,
-					"500-599": 0,
-				},
-			},
-		});
+		try {
+			const response = await fetch(upstreamUrl.toString(), {
+				headers: upstreamHeaders,
+			});
 
-		return addCorsHeaders(response);
+			if (response.status >= 500) {
+				await logUpstreamFailure(response, url, tableName);
+			}
+
+			return addCorsHeaders(response);
+		} catch (error) {
+			console.error("[electric-proxy] Electric upstream fetch failed", {
+				...getRequestSummary(url, tableName),
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return corsResponse(503, "Electric upstream unavailable");
+		}
 	},
 } satisfies ExportedHandler<Env>;

@@ -20,6 +20,9 @@ export function getAuthToken(): string | null {
 }
 
 let jwt: string | null = null;
+let jwtRefreshPromise: Promise<string | null> | null = null;
+
+const JWT_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 export function setJwt(token: string | null) {
 	jwt = token;
@@ -27,6 +30,56 @@ export function setJwt(token: string | null) {
 
 export function getJwt(): string | null {
 	return jwt;
+}
+
+function getJwtExpiresAt(token: string): number | null {
+	const [, payload] = token.split(".");
+	if (!payload) return null;
+
+	try {
+		const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+		const padded = normalized.padEnd(
+			normalized.length + ((4 - (normalized.length % 4)) % 4),
+			"=",
+		);
+		const decoded = JSON.parse(atob(padded)) as { exp?: unknown };
+		return typeof decoded.exp === "number" ? decoded.exp * 1000 : null;
+	} catch {
+		return null;
+	}
+}
+
+function isJwtFresh(token: string): boolean {
+	const expiresAt = getJwtExpiresAt(token);
+	if (!expiresAt) return false;
+	return Date.now() < expiresAt - JWT_REFRESH_BUFFER_MS;
+}
+
+export async function refreshJwt(reason: string): Promise<string | null> {
+	if (jwtRefreshPromise) return jwtRefreshPromise;
+
+	jwtRefreshPromise = authClient
+		.token()
+		.then((res) => {
+			const token = res.data?.token ?? null;
+			if (token) setJwt(token);
+			return token;
+		})
+		.catch((err) => {
+			console.warn(`[auth] JWT refresh failed ${reason}`, err);
+			return null;
+		})
+		.finally(() => {
+			jwtRefreshPromise = null;
+		});
+
+	return jwtRefreshPromise;
+}
+
+export async function getFreshJwt(reason: string): Promise<string | null> {
+	const current = getJwt();
+	if (current && isJwtFresh(current)) return current;
+	return refreshJwt(reason);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { snakeCamelMapper } from "@electric-sql/client";
+import { type Row, snakeCamelMapper } from "@electric-sql/client";
 import type {
 	SelectAgentCommand,
 	SelectAutomation,
@@ -25,7 +25,10 @@ import type {
 	SelectWorkspace,
 } from "@superset/db/schema";
 import type { AppRouter } from "@superset/trpc";
-import { electricCollectionOptions } from "@tanstack/electric-db-collection";
+import {
+	type ElectricCollectionConfig,
+	electricCollectionOptions,
+} from "@tanstack/electric-db-collection";
 import {
 	createElectronSQLitePersistence,
 	persistedCollectionOptions,
@@ -41,7 +44,11 @@ import {
 } from "@tanstack/react-db";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { env } from "renderer/env.renderer";
-import { getAuthToken, getJwt } from "renderer/lib/auth-client";
+import {
+	getAuthToken,
+	getFreshJwt,
+	refreshJwt,
+} from "renderer/lib/auth-client";
 import superjson from "superjson";
 import { z } from "zod";
 import {
@@ -79,6 +86,7 @@ const createIndexedCollection = ((
 	createCollection({ ...config, ...indexDefaults })) as typeof createCollection;
 
 type ElectricSyncConfig = ReturnType<typeof electricCollectionOptions>;
+
 const createPersistedElectricCollection = ((config: ElectricSyncConfig) => {
 	const persisted = persistedCollectionOptions({
 		...config,
@@ -191,14 +199,56 @@ const apiClient = createTRPCProxyClient<AppRouter>({
 });
 
 const electricHeaders = {
-	Authorization: () => {
-		const token = getJwt();
+	Authorization: async () => {
+		const token = await getFreshJwt("for electric sync");
 		return token ? `Bearer ${token}` : "";
 	},
 };
 
+function getFetchStatus(error: Error): number | null {
+	const maybeFetchError = error as Error & {
+		status?: unknown;
+		response?: { status?: unknown };
+	};
+	if (typeof maybeFetchError.status === "number") {
+		return maybeFetchError.status;
+	}
+	if (typeof maybeFetchError.response?.status === "number") {
+		return maybeFetchError.response.status;
+	}
+
+	const match = error.message.match(/HTTP Error (\d+)/);
+	return match ? Number(match[1]) : null;
+}
+
+async function handleElectricShapeError(error: Error) {
+	const status = getFetchStatus(error);
+	if (status !== 401) return undefined;
+
+	const token = await refreshJwt("after electric 401");
+	if (!token) return undefined;
+
+	return {
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+	};
+}
+
+function authenticatedElectricCollectionOptions<T extends Row<unknown>>(
+	config: ElectricCollectionConfig<T>,
+) {
+	return electricCollectionOptions<T>({
+		...config,
+		shapeOptions: {
+			...config.shapeOptions,
+			onError: config.shapeOptions.onError ?? handleElectricShapeError,
+		},
+	});
+}
+
 const organizationsCollection = createPersistedElectricCollection(
-	electricCollectionOptions<SelectOrganization>({
+	authenticatedElectricCollectionOptions<SelectOrganization>({
 		id: "organizations",
 		shapeOptions: {
 			url: electricUrl,
@@ -212,7 +262,7 @@ const organizationsCollection = createPersistedElectricCollection(
 
 function createOrgCollections(organizationId: string): OrgCollections {
 	const tasks = createPersistedElectricCollection(
-		electricCollectionOptions<SelectTask>({
+		authenticatedElectricCollectionOptions<SelectTask>({
 			id: `tasks-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -241,7 +291,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const taskStatuses = createPersistedElectricCollection(
-		electricCollectionOptions<SelectTaskStatus>({
+		authenticatedElectricCollectionOptions<SelectTaskStatus>({
 			id: `task_statuses-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -257,7 +307,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const projects = createPersistedElectricCollection(
-		electricCollectionOptions<SelectProject>({
+		authenticatedElectricCollectionOptions<SelectProject>({
 			id: `projects-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -273,7 +323,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2Projects = createPersistedElectricCollection(
-		electricCollectionOptions<SelectV2Project>({
+		authenticatedElectricCollectionOptions<SelectV2Project>({
 			id: `v2_projects-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -305,7 +355,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2Hosts = createPersistedElectricCollection(
-		electricCollectionOptions<SelectV2Host>({
+		authenticatedElectricCollectionOptions<SelectV2Host>({
 			id: `v2_hosts-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -334,7 +384,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2Clients = createPersistedElectricCollection(
-		electricCollectionOptions<SelectV2Client>({
+		authenticatedElectricCollectionOptions<SelectV2Client>({
 			id: `v2_clients-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -352,7 +402,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2UsersHosts = createPersistedElectricCollection(
-		electricCollectionOptions<SelectV2UsersHosts>({
+		authenticatedElectricCollectionOptions<SelectV2UsersHosts>({
 			id: `v2_users_hosts-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -397,7 +447,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2Workspaces = createPersistedElectricCollection(
-		electricCollectionOptions<SelectV2Workspace>({
+		authenticatedElectricCollectionOptions<SelectV2Workspace>({
 			id: `v2_workspaces-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -425,7 +475,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const workspaces = createPersistedElectricCollection(
-		electricCollectionOptions<SelectWorkspace>({
+		authenticatedElectricCollectionOptions<SelectWorkspace>({
 			id: `workspaces-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -441,7 +491,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const members = createPersistedElectricCollection(
-		electricCollectionOptions<SelectMember>({
+		authenticatedElectricCollectionOptions<SelectMember>({
 			id: `members-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -457,7 +507,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const users = createPersistedElectricCollection(
-		electricCollectionOptions<SelectUser>({
+		authenticatedElectricCollectionOptions<SelectUser>({
 			id: `users-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -473,7 +523,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const invitations = createPersistedElectricCollection(
-		electricCollectionOptions<SelectInvitation>({
+		authenticatedElectricCollectionOptions<SelectInvitation>({
 			id: `invitations-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -489,7 +539,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const teams = createPersistedElectricCollection(
-		electricCollectionOptions<SelectTeam>({
+		authenticatedElectricCollectionOptions<SelectTeam>({
 			id: `teams-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -505,7 +555,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const teamMembers = createPersistedElectricCollection(
-		electricCollectionOptions<SelectTeamMember>({
+		authenticatedElectricCollectionOptions<SelectTeamMember>({
 			id: `team-members-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -521,7 +571,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const agentCommands = createPersistedElectricCollection(
-		electricCollectionOptions<SelectAgentCommand>({
+		authenticatedElectricCollectionOptions<SelectAgentCommand>({
 			id: `agent_commands-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -545,7 +595,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const integrationConnections = createPersistedElectricCollection(
-		electricCollectionOptions<IntegrationConnectionDisplay>({
+		authenticatedElectricCollectionOptions<IntegrationConnectionDisplay>({
 			id: `integration_connections-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -561,7 +611,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const subscriptions = createPersistedElectricCollection(
-		electricCollectionOptions<SelectSubscription>({
+		authenticatedElectricCollectionOptions<SelectSubscription>({
 			id: `subscriptions-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -577,7 +627,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const apiKeys = createPersistedElectricCollection(
-		electricCollectionOptions<ApiKeyDisplay>({
+		authenticatedElectricCollectionOptions<ApiKeyDisplay>({
 			id: `apikeys-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -593,7 +643,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const chatSessions = createPersistedElectricCollection(
-		electricCollectionOptions<SelectChatSession>({
+		authenticatedElectricCollectionOptions<SelectChatSession>({
 			id: `chat_sessions-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -619,7 +669,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const githubRepositories = createPersistedElectricCollection(
-		electricCollectionOptions<SelectGithubRepository>({
+		authenticatedElectricCollectionOptions<SelectGithubRepository>({
 			id: `github_repositories-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -635,7 +685,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const githubPullRequests = createPersistedElectricCollection(
-		electricCollectionOptions<SelectGithubPullRequest>({
+		authenticatedElectricCollectionOptions<SelectGithubPullRequest>({
 			id: `github_pull_requests-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -651,7 +701,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const automations = createPersistedElectricCollection(
-		electricCollectionOptions<SelectAutomation>({
+		authenticatedElectricCollectionOptions<SelectAutomation>({
 			id: `automations-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,
@@ -667,7 +717,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const automationRuns = createPersistedElectricCollection(
-		electricCollectionOptions<SelectAutomationRun>({
+		authenticatedElectricCollectionOptions<SelectAutomationRun>({
 			id: `automation_runs-${organizationId}`,
 			shapeOptions: {
 				url: electricUrl,

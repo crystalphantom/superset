@@ -7,6 +7,7 @@ import { useCollections } from "renderer/routes/_authenticated/providers/Collect
 import { useWorkspaceCreatesStore } from "renderer/stores/workspace-creates";
 import { WorkspaceCreateErrorState } from "./components/WorkspaceCreateErrorState";
 import { WorkspaceCreatingState } from "./components/WorkspaceCreatingState";
+import { WorkspaceHostDisconnectedState } from "./components/WorkspaceHostDisconnectedState";
 import { WorkspaceHostIncompatibleState } from "./components/WorkspaceHostIncompatibleState";
 import { WorkspaceNotFoundState } from "./components/WorkspaceNotFoundState";
 import { useRemoteHostStatus } from "./hooks/useRemoteHostStatus";
@@ -89,6 +90,15 @@ function V2WorkspaceLayout() {
 				hostName={hostStatus.hostName}
 				hostVersion={hostStatus.hostVersion}
 				minVersion={hostStatus.minVersion}
+			/>
+		);
+	}
+	if (hostStatus.status === "disconnected") {
+		return (
+			<WorkspaceHostDisconnectedState
+				hostName={hostStatus.hostName}
+				hostId={hostStatus.hostId}
+				reason={hostStatus.reason}
 			/>
 		);
 	}

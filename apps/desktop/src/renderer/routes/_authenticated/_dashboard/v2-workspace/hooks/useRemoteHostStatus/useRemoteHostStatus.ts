@@ -14,6 +14,12 @@ export type RemoteHostStatus =
 	| { status: "skip" }
 	| { status: "loading" }
 	| {
+			status: "disconnected";
+			hostName: string;
+			hostId: string;
+			reason: "offline" | "unreachable" | "missing";
+	  }
+	| {
 			status: "incompatible";
 			hostName: string;
 			hostVersion: string;
@@ -47,10 +53,13 @@ export function useRemoteHostStatus(
 				)
 				.select(({ hosts }) => ({
 					name: hosts.name,
+					isOnline: hosts.isOnline,
 				})),
 		[collections, organizationId, filterMachineId],
 	);
 	const hostRow = hostRows[0] ?? null;
+	const shouldQueryHostInfo =
+		workspace != null && !isLocal && isReady && hostRow?.isOnline === true;
 
 	const hostUrl = `${relayUrl}/hosts/${buildHostRoutingKey(
 		organizationId,
@@ -60,7 +69,7 @@ export function useRemoteHostStatus(
 	const infoQuery = useQuery({
 		queryKey: ["remoteHostInfo", organizationId, hostId],
 		queryFn: () => getHostServiceClientByUrl(hostUrl).host.info.query(),
-		enabled: workspace != null && !isLocal,
+		enabled: shouldQueryHostInfo,
 		staleTime: HOST_INFO_STALE_MS,
 		retry: false,
 	});
@@ -68,6 +77,33 @@ export function useRemoteHostStatus(
 	if (!workspace) return { status: "loading" };
 	if (isLocal) return { status: "skip" };
 	if (!isReady) return { status: "loading" };
+	if (!hostRow) {
+		return {
+			status: "disconnected",
+			hostName: "Unknown host",
+			hostId,
+			reason: "missing",
+		};
+	}
+	if (!hostRow.isOnline) {
+		return {
+			status: "disconnected",
+			hostName: hostRow.name,
+			hostId,
+			reason: "offline",
+		};
+	}
+
+	if (infoQuery.isPending) return { status: "loading" };
+
+	if (infoQuery.isError) {
+		return {
+			status: "disconnected",
+			hostName: hostRow.name,
+			hostId,
+			reason: "unreachable",
+		};
+	}
 
 	if (infoQuery.isSuccess) {
 		const hostVersion = infoQuery.data.version;

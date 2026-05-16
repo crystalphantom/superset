@@ -273,4 +273,5 @@ The `src/components/ui/` and `src/components/ai-elements` directories contain sh
 
 
 
-Refer : [Self-host-env](../plans/local/self-host-env-inventory.md)
+Refer :
+[Self-host-env-customizations](/plans/customizations/self-host-env-inventory.md)
