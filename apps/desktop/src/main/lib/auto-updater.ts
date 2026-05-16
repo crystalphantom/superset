@@ -248,8 +248,9 @@ export function setupAutoUpdater(): void {
 	// and our own handler narration through electron-log. Both halves of the
 	// state machine end up interleaved in ~/Library/Logs/Superset/main.log —
 	// always use `log.{info,warn,error}` here, not `console.*`.
-	if (log.transports.file) {
-		log.transports.file.level = "info";
+	const fileTransport = log.transports?.file;
+	if (fileTransport) {
+		fileTransport.level = "info";
 	}
 	autoUpdater.logger = log;
 
